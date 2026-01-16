@@ -1,0 +1,6 @@
+screen_time,avg_session,breaks,night_ratio,productive_ratio,fatigue_score,productivity_loss
+2.5,20,10,0.1,0.8,20,1
+4.0,35,6,0.2,0.7,40,3
+6.5,50,4,0.4,0.6,65,5
+8.0,70,2,0.6,0.4,80,8
+9.5,90,1,0.7,0.3,90,10
