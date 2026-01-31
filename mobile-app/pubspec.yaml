@@ -1,0 +1,59 @@
+name: fatigue_mobile_app
+description: Digital Fatigue Prediction Mobile App
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State Management
+  provider: ^6.0.5
+  
+  # HTTP & API
+  http: ^1.1.0
+  dio: ^5.3.3
+  
+  # QR Code
+  qr_code_scanner: ^1.0.1
+  mobile_scanner: ^3.2.0
+  
+  # Local Storage
+  shared_preferences: ^2.2.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Notifications
+  flutter_local_notifications: ^15.1.1
+  
+  # Charts
+  fl_chart: ^0.65.0
+  
+  # UI Enhancements
+  google_fonts: ^6.1.0
+  flutter_svg: ^2.0.9
+  liquid_pull_to_refresh: ^3.0.0
+  shimmer: ^3.0.0
+  
+  # Device Info
+  device_info_plus: ^9.0.3
+  package_info_plus: ^4.0.2
+  
+  # Permission Handling
+  permission_handler: ^10.4.4
+  
+  # Date/Time
+  intl: ^0.18.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

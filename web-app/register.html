@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - FatigueGuard</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .auth-container {
+            display: flex;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .auth-left {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px;
+            color: white;
+        }
+        
+        .auth-right {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            background: white;
+        }
+        
+        .auth-card {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .auth-logo i {
+            font-size: 48px;
+            color: #4A90E2;
+            margin-bottom: 15px;
+        }
+        
+        .auth-logo h1 {
+            font-size: 28px;
+            color: #2C3E50;
+            margin-bottom: 10px;
+        }
+        
+        .auth-logo p {
+            color: #95A5A6;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2C3E50;
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #4A90E2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+        
+        .btn-auth {
+            width: 100%;
+            padding: 14px;
+            background: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-auth:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+        }
+        
+        .btn-auth:disabled {
+            background: #95A5A6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .auth-divider {
+            text-align: center;
+            margin: 25px 0;
+            position: relative;
+        }
+        
+        .auth-divider:before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e0e6ed;
+        }
+        
+        .auth-divider span {
+            background: white;
+            padding: 0 15px;
+            color: #95A5A6;
+            font-size: 14px;
+            position: relative;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #95A5A6;
+            font-size: 14px;
+        }
+        
+        .auth-footer a {
+            color: #4A90E2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .error-message {
+            background: #ffeaea;
+            color: #ff6b6b;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .password-strength {
+            margin-top: 5px;
+            font-size: 12px;
+        }
+        
+        .strength-bar {
+            height: 4px;
+            background: #e0e6ed;
+            border-radius: 2px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        
+        .strength-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        @media (max-width: 768px) {
+            .auth-container {
+                flex-direction: column;
+            }
+            
+            .auth-left {
+                padding: 40px 20px;
+                text-align: center;
+            }
+            
+            .auth-right {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-left">
+            <div style="max-width: 500px;">
+                <h1 style="font-size: 2.5rem; margin-bottom: 20px;">
+                    <i class="fas fa-brain"></i><br>
+                    Join FatigueGuard
+                </h1>
+                <p style="font-size: 1.2rem; opacity: 0.9; margin-bottom: 30px;">
+                    Start your journey to better digital wellness and productivity.
+                </p>
+                <div style="margin-top: 40px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 25px;">
+                        <i class="fas fa-shield-alt" style="font-size: 24px; margin-right: 15px;"></i>
+                        <div>
+                            <h3 style="margin: 0 0 5px 0;">Data Privacy</h3>
+                            <p style="margin: 0; opacity: 0.8;">Your data is encrypted and never shared</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin-bottom: 25px;">
+                        <i class="fas fa-sync-alt" style="font-size: 24px; margin-right: 15px;"></i>
+                        <div>
+                            <h3 style="margin: 0 0 5px 0;">Real-time Sync</h3>
+                            <p style="margin: 0; opacity: 0.8;">Seamless laptop & mobile synchronization</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <i class="fas fa-chart-line" style="font-size: 24px; margin-right: 15px;"></i>
+                        <div>
+                            <h3 style="margin: 0 0 5px 0;">AI Insights</h3>
+                            <p style="margin: 0; opacity: 0.8;">Personalized productivity recommendations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="auth-right">
+            <div class="auth-card">
+                <div class="auth-logo">
+                    <i class="fas fa-user-plus"></i>
+                    <h1>Create Account</h1>
+                    <p>Start your digital wellness journey</p>
+                </div>
+                
+                <div id="error-message" class="error-message"></div>
+                
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="full-name" class="form-label">
+                            <i class="fas fa-user"></i> Full Name
+                        </label>
+                        <input 
+                            type="text" 
+                            id="full-name" 
+                            class="form-input" 
+                            placeholder="John Doe"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope"></i> Email Address
+                        </label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            class="form-input" 
+                            placeholder="you@example.com"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock"></i> Password
+                        </label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            class="form-input" 
+                            placeholder="••••••••"
+                            required
+                            minlength="6"
+                        >
+                        <div class="password-strength">
+                            <span id="strength-text">Password strength</span>
+                            <div class="strength-bar">
+                                <div id="strength-fill" class="strength-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm-password" class="form-label">
+                            <i class="fas fa-lock"></i> Confirm Password
+                        </label>
+                        <input 
+                            type="password" 
+                            id="confirm-password" 
+                            class="form-input" 
+                            placeholder="••••••••"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="terms" required>
+                            I agree to the <a href="#" style="color: #4A90E2;">Terms of Service</a> and <a href="#" style="color: #4A90E2;">Privacy Policy</a>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn-auth">
+                        <span id="btn-text">Create Account</span>
+                    </button>
+                </form>
+                
+                <div class="auth-divider">
+                    <span>Already have an account?</span>
+                </div>
+                
+                <a href="login.html">
+                    <button type="button" class="btn-auth" style="background: #95A5A6;">
+                        Sign In Instead
+                    </button>
+                </a>
+                
+                <div class="auth-footer">
+                    <p>By creating an account, you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script>
+        // Password strength indicator
+        document.getElementById('password').addEventListener('input', function(e) {
+            const password = e.target.value;
+            const strengthText = document.getElementById('strength-text');
+            const strengthFill = document.getElementById('strength-fill');
+            
+            let strength = 0;
+            let color = '#ff6b6b';
+            
+            if (password.length >= 6) strength += 25;
+            if (/[A-Z]/.test(password)) strength += 25;
+            if (/[0-9]/.test(password)) strength += 25;
+            if (/[^A-Za-z0-9]/.test(password)) strength += 25;
+            
+            if (strength >= 75) {
+                strengthText.textContent = 'Strong password';
+                color = '#50C878';
+            } else if (strength >= 50) {
+                strengthText.textContent = 'Good password';
+                color = '#FFA500';
+            } else if (strength >= 25) {
+                strengthText.textContent = 'Fair password';
+                color = '#FFA500';
+            } else {
+                strengthText.textContent = 'Weak password';
+                color = '#ff6b6b';
+            }
+            
+            strengthFill.style.width = strength + '%';
+            strengthFill.style.backgroundColor = color;
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Fatigue & Productivity System</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-brain"></i>
+                <span>FatigueGuard</span>
+            </div>
+            <div class="nav-links">
+                <a href="#dashboard" class="nav-link active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="#analytics" class="nav-link"><i class="fas fa-chart-bar"></i> Analytics</a>
+                <a href="#predictions" class="nav-link"><i class="fas fa-robot"></i> Predictions</a>
+                <a href="#zones" class="nav-link"><i class="fas fa-clock"></i> Productivity Zones</a>
+                <a href="#recommendations" class="nav-link"><i class="fas fa-lightbulb"></i> Recommendations</a>
+                <a href="#notifications" class="nav-link notification-badge">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge">3</span>
+                </a>
+                <div class="user-menu">
+                    <img src="https://ui-avatars.com/api/?name=John+Doe&background=4A90E2&color=fff" alt="User" class="user-avatar">
+                    <span class="user-name">John Doe</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="section active">
+            <div class="section-header">
+                <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+                <div class="device-status">
+                    <span class="status-badge connected">
+                        <i class="fas fa-laptop"></i> Laptop: Connected
+                    </span>
+                    <span class="status-badge connected">
+                        <i class="fas fa-mobile-alt"></i> Mobile: Connected
+                    </span>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-icon">
+                        <i class="fas fa-tired"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Fatigue Score</h3>
+                        <div class="stat-value" id="fatigue-score">65</div>
+                        <div class="stat-label">Medium Risk</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 65%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card warning">
+                    <div class="stat-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Productivity Loss</h3>
+                        <div class="stat-value" id="productivity-loss">12.5</div>
+                        <div class="stat-label">hours/week</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 50%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-icon">
+                        <i class="fas fa-laptop"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Laptop Usage</h3>
+                        <div class="stat-value" id="laptop-usage">5.2</div>
+                        <div class="stat-label">hours today</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 52%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stat-card info">
+                    <div class="stat-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>Mobile Usage</h3>
+                        <div class="stat-value" id="mobile-usage">3.8</div>
+                        <div class="stat-label">hours today</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 38%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-area"></i> Fatigue Trend</h3>
+                    <canvas id="fatigue-chart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h3><i class="fas fa-chart-pie"></i> App Usage Distribution</h3>
+                    <canvas id="app-usage-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Device Pairing -->
+            <div class="pairing-section">
+                <h3><i class="fas fa-qrcode"></i> Device Pairing</h3>
+                <div class="pairing-card">
+                    <div class="qr-container">
+                        <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=fatigue-app:demo_token:user123:laptop" alt="QR Code">
+                    </div>
+                    <div class="pairing-info">
+                        <h4>Pair Your Mobile Device</h4>
+                        <p>Scan this QR code with your mobile app to sync data</p>
+                        <div class="pairing-status">
+                            <i class="fas fa-check-circle connected"></i>
+                            <span>Mobile device paired: 2 hours ago</span>
+                        </div>
+                        <button class="btn btn-primary" id="refresh-qr">
+                            <i class="fas fa-sync-alt"></i> Refresh QR Code
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analytics Section -->
+        <section id="analytics" class="section">
+            <div class="section-header">
+                <h1><i class="fas fa-chart-bar"></i> Usage Analytics</h1>
+                <div class="time-filter">
+                    <select id="time-range">
+                        <option value="24">Last 24 Hours</option>
+                        <option value="168">Last 7 Days</option>
+                        <option value="720">Last 30 Days</option>
+                    </select>
+                </div>
+            </div>
+            <div class="analytics-grid">
+                <div class="analytics-card full-width">
+                    <h3>Screen Time Overview</h3>
+                    <canvas id="screen-time-chart"></canvas>
+                </div>
+                <div class="analytics-card">
+                    <h3>Top Applications</h3>
+                    <div id="top-apps-list"></div>
+                </div>
+                <div class="analytics-card">
+                    <h3>Productivity Score</h3>
+                    <div class="productivity-meter">
+                        <div class="meter-value">78%</div>
+                        <div class="meter-circle">
+                            <svg width="120" height="120">
+                                <circle class="meter-bg" cx="60" cy="60" r="54"></circle>
+                                <circle class="meter-fill" cx="60" cy="60" r="54" style="stroke-dasharray: 339.292; stroke-dashoffset: 74.645"></circle>
+                            </svg>
+                            <div class="meter-label">Good</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- More sections would follow for Predictions, Zones, Recommendations, Notifications -->
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/pairing.js"></script>
+    <script src="js/charts.js"></script>
+</body>
+</html>
