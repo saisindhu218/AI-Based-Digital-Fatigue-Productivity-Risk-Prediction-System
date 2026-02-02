@@ -6,6 +6,7 @@ from typing import Dict, Any, Tuple
 import os
 from config import settings
 from .feature_extractor import feature_service  # ← NEW: Use live feature extractor
+from typing import Dict, Any, Tuple, List
 
 class MLService:
     def __init__(self):

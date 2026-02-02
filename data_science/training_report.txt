@@ -1,0 +1,5 @@
+ML Model Training Report
+========================================
+Fatigue Classifier Accuracy: 1.0000
+Productivity Regressor R²: 0.9603
+Productivity Regressor MAE: 0.6720

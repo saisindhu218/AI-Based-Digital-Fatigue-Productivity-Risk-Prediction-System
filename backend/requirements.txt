@@ -14,5 +14,4 @@ numpy==1.24.3
 pandas==2.1.4
 scikit-learn==1.3.2
 schedule==1.2.0
-pywin32==306 (Windows only)
-pyobjc-core (macOS only)
+pywin32==306

@@ -1,0 +1,11 @@
+# Data Science specific
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+models/  # Generated models
+datasets/processed/
+datasets/temp/
+*.pkl
+*.joblib
+*.h5
+training_report.txt

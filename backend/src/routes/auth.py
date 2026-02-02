@@ -16,8 +16,15 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_password_hash(password):
+def get_password_hash(password: str) -> str:
+    # bcrypt hard limit = 72 bytes
+    if len(password.encode("utf-8")) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password too long (maximum 72 characters allowed)"
+        )
     return pwd_context.hash(password)
+
 
 async def authenticate_user(email: str, password: str):
     user = await db.db.users.find_one({"email": email})
