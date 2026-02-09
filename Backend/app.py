@@ -3,14 +3,16 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from datetime import datetime
 
-# 🔹 ADD THIS LINE
+# Blueprints
 from routes.predict import predict_bp
+from routes.analyze import analyze_bp
 
 app = Flask(__name__)
 CORS(app)
 
-# 🔹 REGISTER PREDICT BLUEPRINT
+# Register blueprints
 app.register_blueprint(predict_bp)
+app.register_blueprint(analyze_bp)
 
 # MongoDB connection
 MONGO_URI = "mongodb+srv://fatigueproject:Taylorswift1988@forthsem.tdsu3zu.mongodb.net/digital_fatigue_db?retryWrites=true&w=majority&appName=forthsem"
@@ -29,7 +31,6 @@ def home():
 def collect_data():
     data = request.json
     data["timestamp"] = datetime.utcnow()
-
     collection.insert_one(data)
 
     return jsonify({
