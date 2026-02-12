@@ -1,51 +1,22 @@
-from flask import Blueprint, jsonify
-from pymongo import MongoClient
+from flask import Blueprint, request, jsonify
 import joblib
-import pandas as pd
-import os
+import numpy as np
 
-predict_bp = Blueprint("predict", __name__)
+predict_bp = Blueprint("predict", __name__, url_prefix="/predict")
 
-# MongoDB
-MONGO_URI = "mongodb+srv://fatigueproject:Taylorswift1988@forthsem.tdsu3zu.mongodb.net/digital_fatigue_db?retryWrites=true&w=majority"
-client = MongoClient(MONGO_URI)
-db = client["digital_fatigue_db"]
+model = joblib.load("ml/fatigue_model.pkl")
+encoder = joblib.load("ml/label_encoder.pkl")
 
-usage_col = db["device_usage"]
-prediction_col = db["fatigue_predictions"]
+@predict_bp.route("/", methods=["POST"])
+def predict():
+    data = request.json
 
-# Load ML model
-MODEL_PATH = os.path.join("ml", "fatigue_model.pkl")
-ENCODER_PATH = os.path.join("ml", "label_encoder.pkl")
+    features = np.array([[
+        data["screen_time"],
+        data["idle_time"]
+    ]])
 
-model = joblib.load(MODEL_PATH)
-encoder = joblib.load(ENCODER_PATH)
+    prediction = model.predict(features)
+    label = encoder.inverse_transform(prediction)
 
-@predict_bp.route("/predict", methods=["GET"])
-def predict_fatigue():
-    data = list(usage_col.find().sort("timestamp", -1).limit(20))
-
-    if not data:
-        return jsonify({"error": "No data available"}), 400
-
-    df = pd.DataFrame(data)
-
-    # Feature engineering (VERY IMPORTANT)
-    features = pd.DataFrame([{
-        "screen_time": df["screen_time"].sum(),
-        "idle_time": df["idle_time"].mean(),
-        "night_ratio": 0.0  # placeholder for now
-    }])
-
-    prediction = model.predict(features)[0]
-    fatigue_level = encoder.inverse_transform([prediction])[0]
-
-    result = {
-        "fatigue_level": fatigue_level,
-        "screen_time": features["screen_time"][0],
-        "idle_time": round(features["idle_time"][0], 2)
-    }
-
-    prediction_col.insert_one(result)
-
-    return jsonify(result)
+    return jsonify({"fatigue_level": label[0]})
