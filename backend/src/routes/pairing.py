@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import datetime
-from models.device import DeviceCreate, DeviceInDB, QRToken, DevicePairingStatus
-from services.qr_service import QRService
-from database import db
+from src.models.device import DeviceCreate, DeviceInDB, QRToken, DevicePairingStatus
+from src.services.qr_service import QRService
+from src.database import db
 import uuid
 
 router = APIRouter(prefix="/pairing", tags=["device-pairing"])
-
+# ... rest of the file stays the same
 @router.post("/generate-qr", response_model=QRToken)
 async def generate_qr_code(device_data: DeviceCreate):
     """Generate QR code for device pairing"""

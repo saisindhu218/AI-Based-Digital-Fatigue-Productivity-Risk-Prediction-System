@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 from datetime import datetime, timedelta
-from models.usage import LaptopUsageData, MobileUsageData
-from database import db
+# FIXED: Use absolute imports
+from src.models.usage import LaptopUsageData, MobileUsageData
+from src.database import db
 import uuid
 
 router = APIRouter(prefix="/usage", tags=["usage-data"])

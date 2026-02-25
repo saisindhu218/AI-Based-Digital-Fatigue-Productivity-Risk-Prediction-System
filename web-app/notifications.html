@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - FatigueGuard</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .notifications-container {
+            max-width: 1200px;
+            margin: 90px auto 30px;
+            padding: 20px;
+        }
+
+        .notifications-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        .notifications-header h1 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.8rem;
+            color: var(--dark-color);
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .notification-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid #4A90E2;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .notification-card.unread {
+            border-left-color: #FF6B6B;
+            background-color: #fff5f5;
+        }
+
+        .notification-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--dark-color);
+        }
+
+        .notification-time {
+            font-size: 0.85rem;
+            color: #95A5A6;
+        }
+
+        .notification-message {
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .notification-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-right: 10px;
+        }
+
+        .type-alert {
+            background: #ffeaea;
+            color: #ff6b6b;
+        }
+
+        .type-recommendation {
+            background: #e8f5e9;
+            color: #50c878;
+        }
+
+        .type-info {
+            background: #e3f2fd;
+            color: #4a90e2;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #95A5A6;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: var(--dark-color);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            background: #f5f7fa;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #95A5A6;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn.active {
+            background: #4A90E2;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .notifications-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+
+            .notification-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <i class="fas fa-brain"></i>
+                <span>FatigueGuard</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="analytics.html" class="nav-link"><i class="fas fa-chart-bar"></i> Analytics</a>
+                <a href="notifications.html" class="nav-link active"><i class="fas fa-bell"></i> Notifications</a>
+                <div class="user-menu">
+                    <img src="https://ui-avatars.com/api/?name=User&background=4A90E2&color=fff" alt="User" class="user-avatar">
+                    <span class="user-name">User</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="notifications-container">
+        <div class="notifications-header">
+            <h1><i class="fas fa-bell"></i> Notifications</h1>
+            <div class="notification-actions">
+                <button class="btn btn-primary" id="mark-all-read">
+                    <i class="fas fa-check-double"></i> Mark All as Read
+                </button>
+                <button class="btn" id="refresh-notifications">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="unread">Unread</button>
+            <button class="filter-btn" data-filter="alerts">Alerts</button>
+            <button class="filter-btn" data-filter="recommendations">Recommendations</button>
+        </div>
+
+        <div id="notifications-list">
+            <!-- Notifications will be loaded here -->
+            <div class="notification-card unread">
+                <div class="notification-header">
+                    <div class="notification-title">High Fatigue Alert</div>
+                    <div class="notification-time">2 hours ago</div>
+                </div>
+                <div class="notification-message">
+                    Your fatigue level has reached 75%. Consider taking a 15-minute break.
+                </div>
+                <span class="notification-type type-alert">Alert</span>
+            </div>
+
+            <div class="notification-card">
+                <div class="notification-header">
+                    <div class="notification-title">Productivity Recommendation</div>
+                    <div class="notification-time">5 hours ago</div>
+                </div>
+                <div class="notification-message">
+                    Try the Pomodoro technique for better focus. Work for 25 minutes, then take a 5-minute break.
+                </div>
+                <span class="notification-type type-recommendation">Recommendation</span>
+            </div>
+
+            <div class="notification-card">
+                <div class="notification-header">
+                    <div class="notification-title">Device Paired Successfully</div>
+                    <div class="notification-time">1 day ago</div>
+                </div>
+                <div class="notification-message">
+                    Your laptop has been successfully paired with your mobile device.
+                </div>
+                <span class="notification-type type-info">Info</span>
+            </div>
+        </div>
+
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <i class="fas fa-bell-slash"></i>
+            <h3>No Notifications</h3>
+            <p>You're all caught up! New notifications will appear here.</p>
+        </div>
+    </main>
+
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Filter functionality
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filter = this.dataset.filter;
+                    
+                    // Update active button
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter notifications
+                    filterNotifications(filter);
+                });
+            });
+
+            // Mark all as read
+            document.getElementById('mark-all-read').addEventListener('click', function() {
+                document.querySelectorAll('.notification-card.unread').forEach(card => {
+                    card.classList.remove('unread');
+                });
+                alert('All notifications marked as read');
+            });
+
+            // Refresh notifications
+            document.getElementById('refresh-notifications').addEventListener('click', function() {
+                alert('Notifications refreshed');
+            });
+
+            function filterNotifications(filter) {
+                const notifications = document.querySelectorAll('.notification-card');
+                let visibleCount = 0;
+
+                notifications.forEach(card => {
+                    let show = false;
+
+                    switch(filter) {
+                        case 'all':
+                            show = true;
+                            break;
+                        case 'unread':
+                            show = card.classList.contains('unread');
+                            break;
+                        case 'alerts':
+                            show = card.querySelector('.type-alert');
+                            break;
+                        case 'recommendations':
+                            show = card.querySelector('.type-recommendation');
+                            break;
+                    }
+
+                    card.style.display = show ? 'block' : 'none';
+                    if (show) visibleCount++;
+                });
+
+                // Show/hide empty state
+                const emptyState = document.getElementById('empty-state');
+                emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+
+            // Initialize with all notifications
+            filterNotifications('all');
+        });
+    </script>
+</body>
+</html>

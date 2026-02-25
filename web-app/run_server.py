@@ -1,17 +1,24 @@
 #!/usr/bin/env python3
 """
-HTTP server with CORS support
+Simple HTTP server for web app
 """
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+import http.server
 import socketserver
-import webbrowser
-import threading
-import time
 import os
+import sys
+import webbrowser
+from pathlib import Path
+
+# ⭐ FIX: Force UTF-8 output
+sys.stdout.reconfigure(encoding="utf-8", errors="ignore")
 
 PORT = 8080
+WEB_DIR = Path(__file__).parent
 
-class CORSRequestHandler(SimpleHTTPRequestHandler):
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(WEB_DIR), **kwargs)
+    
     def end_headers(self):
         # Add CORS headers
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -22,32 +29,44 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
+    
+    def log_message(self, format, *args):
+        # Custom log format
+        print(f"[WEB] {self.address_string()} - {format % args}")
 
-def open_browser():
-    """Open browser after delay"""
-    time.sleep(2)
-    webbrowser.open(f"http://localhost:{PORT}")
+def main():
+    os.chdir(WEB_DIR)
+    
+    print("=" * 60)
+    print("Digital Fatigue Guard - Web Application Server")
+    print("=" * 60)
+    print(f"Serving from: {WEB_DIR}")
+    print(f"Local URL: http://localhost:{PORT}")
+    print("=" * 60)
+    
+    try:
+        with socketserver.TCPServer(("", PORT), Handler) as httpd:
+            print(f"✅ Server started on port {PORT}")
+            print("Press Ctrl+C to stop\n")
+            
+            # Open browser automatically
+            webbrowser.open(f'http://localhost:{PORT}')
+            
+            httpd.serve_forever()
+            
+    except OSError as e:
+        if e.errno == 98:  # Port already in use
+            print(f"❌ Port {PORT} is already in use!")
+            print("Try:")
+            print("  1. Kill the process using port 8080")
+            print("  2. Use a different port")
+            print("  3. Restart the server")
+        else:
+            print(f"❌ Error: {e}")
+    except KeyboardInterrupt:
+        print("\n\n✅ Server stopped")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("   Digital Fatigue Prediction System - Web App")
-    print("=" * 60)
-
-    print(f"📁 Serving directory: {os.getcwd()}")
-
-    # Open browser in background thread
-    threading.Thread(target=open_browser, daemon=True).start()
-
-    try:
-        with socketserver.TCPServer(("", PORT), CORSRequestHandler) as httpd:
-            print(f"\n🌐 Serving at http://localhost:{PORT}")
-            print("   CORS headers enabled")
-            print("\n🛑 Press Ctrl+C to stop")
-            print("=" * 60)
-
-            httpd.serve_forever()
-
-    except KeyboardInterrupt:
-        print("\n\nServer stopped by user")
-    except Exception as e:
-        print(f"\nError: {e}")
+    main()
