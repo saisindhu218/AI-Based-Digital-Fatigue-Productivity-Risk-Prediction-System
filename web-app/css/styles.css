@@ -67,12 +67,18 @@ body {
     border-radius: 10px;
     font-size: 16px;
     transition: border 0.3s;
+    background: #f8f9fa; /* Dark background for inputs */
+}
+
+.form-group input::placeholder {
+    color: #999; /* Watermark color */
 }
 
 .form-group input:focus,
 .form-group select:focus {
     border-color: #667eea;
     outline: none;
+    background: white;
 }
 
 .btn {
@@ -302,7 +308,7 @@ body {
 /* FIXED: Chart Container Sizing */
 .chart-container {
     position: relative;
-    height: 300px; /* Fixed height */
+    height: 300px; /* Fixed height for dashboard charts */
     width: 100%;
 }
 
@@ -686,5 +692,245 @@ body {
     .analytics-chart,
     .prediction-card {
         padding: 20px;
+    }
+}
+
+/* ========== AUTH PAGES STYLES ========== */
+.auth-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin: 0;
+    min-height: 100vh;
+}
+
+.auth-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.auth-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
+    color: white;
+}
+
+.auth-left-content {
+    max-width: 500px;
+}
+
+.auth-title {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+}
+
+.auth-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    margin-bottom: 30px;
+}
+
+.auth-features {
+    margin-top: 40px;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.feature-icon {
+    font-size: 24px;
+    margin-right: 15px;
+}
+
+.feature-item h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.1rem;
+}
+
+.feature-item p {
+    margin: 0;
+    opacity: 0.8;
+    font-size: 0.9rem;
+}
+
+.auth-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    background: white;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.auth-logo {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.auth-logo i {
+    font-size: 48px;
+    color: #4A90E2;
+    margin-bottom: 15px;
+}
+
+.auth-logo h1 {
+    font-size: 28px;
+    color: #2C3E50;
+    margin-bottom: 10px;
+}
+
+.auth-logo p {
+    color: #95A5A6;
+    font-size: 14px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    color: #2C3E50;
+    font-weight: 500;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e6ed;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: #f8f9fa; /* Dark background for inputs */
+}
+
+.form-input::placeholder {
+    color: #999; /* Watermark color */
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: #4A90E2;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    background: white;
+}
+
+.btn-auth {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.btn-auth:hover {
+    transform: translateY(-2px);
+}
+
+.btn-auth:disabled {
+    cursor: not-allowed;
+    transform: none;
+}
+
+.auth-divider {
+    text-align: center;
+    margin: 25px 0;
+    position: relative;
+}
+
+.auth-divider:before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #e0e6ed;
+}
+
+.auth-divider span {
+    background: white;
+    padding: 0 15px;
+    color: #95A5A6;
+    font-size: 14px;
+    position: relative;
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: 25px;
+    color: #95A5A6;
+    font-size: 14px;
+}
+
+.auth-footer a {
+    color: #4A90E2;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-footer a:hover {
+    text-decoration: underline;
+}
+
+.error-message {
+    background: #ffeaea;
+    color: #ff6b6b;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    display: none;
+}
+
+.test-account {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .auth-container {
+        flex-direction: column;
+    }
+    
+    .auth-left {
+        padding: 40px 20px;
+        text-align: center;
+    }
+    
+    .auth-right {
+        padding: 20px;
+    }
+    
+    .auth-title {
+        font-size: 2rem;
+    }
+    
+    .auth-subtitle {
+        font-size: 1rem;
     }
 }

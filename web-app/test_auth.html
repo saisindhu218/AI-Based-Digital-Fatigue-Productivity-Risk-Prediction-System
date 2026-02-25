@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth</title>
+</head>
+<body>
+    <h1>Auth Test Page</h1>
+    
+    <button onclick="testLocalStorage()">Test Local Storage</button>
+    <button onclick="testAuthJS()">Test Auth.js</button>
+    <button onclick="testBackend()">Test Backend API</button>
+    
+    <div id="result" style="margin-top: 20px; padding: 10px; background: #f0f0f0;"></div>
+    
+    <script>
+        function testLocalStorage() {
+            localStorage.setItem('test', 'working');
+            const value = localStorage.getItem('test');
+            document.getElementById('result').innerHTML = 
+                `Local Storage Test: ${value === 'working' ? '✅ PASS' : '❌ FAIL'}`;
+        }
+        
+        function testAuthJS() {
+            const script = document.createElement('script');
+            script.src = 'js/auth.js';
+            script.onload = () => {
+                document.getElementById('result').innerHTML += 
+                    '<br>✅ auth.js loaded successfully';
+            };
+            script.onerror = () => {
+                document.getElementById('result').innerHTML += 
+                    '<br>❌ Failed to load auth.js';
+            };
+            document.head.appendChild(script);
+        }
+        
+        async function testBackend() {
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                const data = await response.json();
+                document.getElementById('result').innerHTML += 
+                    `<br>✅ Backend Health: ${data.status}`;
+            } catch (error) {
+                document.getElementById('result').innerHTML += 
+                    `<br>❌ Backend Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
