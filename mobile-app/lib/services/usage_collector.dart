@@ -1,143 +1,208 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:usage_stats/usage_stats.dart';
 import 'package:fatigue_mobile_app/services/api_service.dart';
 import 'package:fatigue_mobile_app/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 
 class UsageCollector {
+
   static final UsageCollector _instance = UsageCollector._internal();
   factory UsageCollector() => _instance;
   UsageCollector._internal();
 
   final ApiService _apiService = ApiService();
   final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-  Timer? _collectionTimer;
+
+  Timer? _timer;
+
   String? _deviceId;
   String? _userId;
 
   Future<void> initialize() async {
-    await _getDeviceInfo();
-    await _requestPermissions();
+    await _initDevice();
+    await _requestPermission();
   }
 
-  Future<void> _getDeviceInfo() async {
+  Future<void> _initDevice() async {
     try {
-      final info = await deviceInfo.deviceInfo;
-      _deviceId = info.data['id'] ?? 'unknown_device';
-    } catch (e) {
-      _deviceId = 'error_device_${DateTime.now().millisecondsSinceEpoch}';
+      final info = await deviceInfo.androidInfo;
+      _deviceId = info.id.isNotEmpty
+          ? info.id
+          : "android_${DateTime.now().millisecondsSinceEpoch}";
+    } catch (_) {
+      _deviceId = "unknown_${DateTime.now().millisecondsSinceEpoch}";
     }
   }
 
-  Future<void> _requestPermissions() async {
-    // Request usage access permission
-    final status = await Permission.usage.request();
-    if (!status.isGranted) {
-      debugPrint('Usage permission not granted');
+  Future<void> _requestPermission() async {
+    try {
+      bool granted = await UsageStats.checkUsagePermission();
+      if (!granted) {
+        await UsageStats.grantUsagePermission();
+      }
+    } catch (e) {
+      debugPrint("Permission error: $e");
     }
   }
 
   void startCollection(BuildContext context) {
-    // Stop existing timer if any
     stopCollection();
 
-    // Start new collection timer (every 5 minutes)
-    _collectionTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
-      _collectAndSendUsage(context);
+    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _collectAndSend(context);
     });
 
-    // Initial collection
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _collectAndSendUsage(context);
+      _collectAndSend(context);
     });
   }
 
   void stopCollection() {
-    _collectionTimer?.cancel();
-    _collectionTimer = null;
+    _timer?.cancel();
+    _timer = null;
   }
 
-  Future<void> _collectAndSendUsage(BuildContext context) async {
+  Future<void> _collectAndSend(BuildContext context) async {
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      _userId = authProvider.userId;
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      _userId = auth.userId;
 
-      if (_userId == null || _deviceId == null) {
-        return;
-      }
+      if (_userId == null || _deviceId == null) return;
 
-      // Collect usage data
-      final usageData = await _collectUsageData();
+      final usage = await _collectUsage();
 
-      // Send to backend
       await _apiService.sendMobileUsage(
         deviceId: _deviceId!,
         userId: _userId!,
-        usageData: usageData,
+        usageData: usage,
       );
-
-      debugPrint('Usage data sent successfully');
     } catch (e) {
-      debugPrint('Error collecting/sending usage: $e');
+      debugPrint("Mobile usage error: $e");
     }
   }
 
-  Future<Map<String, dynamic>> _collectUsageData() async {
-    // In a real app, you would use platform-specific APIs to collect usage data
-    // For demo purposes, we'll simulate usage data
-    
-    final now = DateTime.now();
-    final packageInfo = await PackageInfo.fromPlatform();
+  Future<Map<String, dynamic>> _collectUsage() async {
+
+    final end = DateTime.now();
+    final start = end.subtract(const Duration(minutes: 1));
+
+    List<UsageInfo> stats = [];
+
+    try {
+      stats = await UsageStats.queryUsageStats(start, end);
+    } catch (_) {
+      stats = [];
+    }
+
+    double totalMillis = 0;
+    String topApp = "Unknown";
+
+    if (stats.isNotEmpty) {
+
+      stats.sort((a, b) =>
+          (b.totalTimeInForeground).compareTo(a.totalTimeInForeground));
+
+      topApp = stats.first.packageName ?? "Unknown";
+
+      totalMillis = stats.fold(
+          0,
+          (sum, item) =>
+              sum + item.totalTimeInForeground);
+    }
+
+    final screenMinutes = totalMillis / 1000 / 60;
 
     return {
-      'timestamp': now.toIso8601String(),
-      'session_id': 'mobile_session_${now.millisecondsSinceEpoch}',
-      'app_name': packageInfo.appName,
-      'screen_time': _simulateScreenTime(),
-      'category': _getAppCategory(packageInfo.appName),
-      'notifications_received': _simulateNotifications(),
-      'device_info': {
-        'platform': Theme.of(context).platform.toString(),
-        'app_version': packageInfo.version,
-      },
+      "timestamp": DateTime.now().toIso8601String(),
+      "session_id": "mobile_${DateTime.now().millisecondsSinceEpoch}",
+      "app_name": topApp,
+      "screen_time": screenMinutes,
+      "category": _detectCategory(topApp),
+      "notifications_received": 0
     };
   }
 
-  double _simulateScreenTime() {
-    // Simulate screen time: 1-15 minutes in last 5 minutes
-    return (Random().nextInt(15) + 1).toDouble();
-  }
+  String _detectCategory(String pkg) {
 
-  int _simulateNotifications() {
-    // Simulate notifications: 0-5 in last 5 minutes
-    return Random().nextInt(6);
-  }
+    pkg = pkg.toLowerCase();
 
-  String _getAppCategory(String appName) {
-    const socialApps = ['Facebook', 'Instagram', 'Twitter', 'WhatsApp'];
-    const productivityApps = ['Gmail', 'Calendar', 'Docs', 'Slack'];
-    const entertainmentApps = ['YouTube', 'Netflix', 'Spotify', 'Games'];
+    if (pkg.contains("youtube") || pkg.contains("netflix"))
+      return "Entertainment";
 
-    if (socialApps.any((app) => appName.contains(app))) {
-      return 'Social';
-    } else if (productivityApps.any((app) => appName.contains(app))) {
-      return 'Productivity';
-    } else if (entertainmentApps.any((app) => appName.contains(app))) {
-      return 'Entertainment';
-    } else {
-      return 'Other';
-    }
+    if (pkg.contains("whatsapp") ||
+        pkg.contains("instagram") ||
+        pkg.contains("facebook"))
+      return "Social";
+
+    if (pkg.contains("docs") ||
+        pkg.contains("office") ||
+        pkg.contains("code") ||
+        pkg.contains("notion"))
+      return "Productivity";
+
+    return "Other";
   }
 
   Future<Map<String, dynamic>> getUsageSummary() async {
-    // Get summarized usage data for display
+
+    final end = DateTime.now();
+    final start = end.subtract(const Duration(hours: 24));
+
+    List<UsageInfo> stats = [];
+
+    try {
+      stats = await UsageStats.queryUsageStats(start, end);
+    } catch (_) {
+      stats = [];
+    }
+
+    double totalMillis = stats.fold(
+        0,
+        (sum, item) =>
+            sum + item.totalTimeInForeground);
+
+    String topApp = "Unknown";
+
+    if (stats.isNotEmpty) {
+
+      stats.sort((a, b) =>
+          (b.totalTimeInForeground).compareTo(a.totalTimeInForeground));
+
+      topApp = stats.first.packageName ?? "Unknown";
+    }
+
     return {
-      'today_screen_time': Random().nextInt(300) + 60, // 1-5 hours in minutes
-      'most_used_app': 'WhatsApp',
-      'productivity_score': Random().nextInt(40) + 60, // 60-100
-      'notification_count': Random().nextInt(50) + 10,
+      "today_screen_time": totalMillis / 1000 / 60,
+      "most_used_app": topApp,
+      "productivity_score": _calculateProductivity(stats),
+      "notification_count": 0
     };
+  }
+
+  int _calculateProductivity(List<UsageInfo> stats) {
+
+    double productive = 0;
+    double total = 0;
+
+    for (final app in stats) {
+
+      final t = app.totalTimeInForeground;
+
+      total += t;
+
+      final pkg = (app.packageName ?? "").toLowerCase();
+
+      if (pkg.contains("docs") ||
+          pkg.contains("code") ||
+          pkg.contains("office")) {
+        productive += t;
+      }
+    }
+
+    if (total == 0) return 70;
+
+    return ((productive / total) * 100).round();
   }
 }

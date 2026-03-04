@@ -1,288 +1,146 @@
-// ========== AUTH CHECK ==========
-let authChecked = false;
+const API_BASE="http://127.0.0.1:8000/api/v1";
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Dashboard loaded');
-    
-    if (authChecked) return;
-    authChecked = true;
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
-        console.log("No token — redirecting to login");
-        location.href = "login.html";
-        return;
-    }
-    
-    console.log('User is authenticated');
-    
-    // SHOW USER NAME
-    const nameBox = document.getElementById("userEmail");
-    const storedName = localStorage.getItem("studentName") || "User";
-    if (nameBox) {
-        nameBox.textContent = storedName;
-    }
+document.addEventListener("DOMContentLoaded",async function(){
+const token=localStorage.getItem("token");
+if(!token){window.location.href="login.html";return;}
 
-    initNavigation();
-    initStats();
-    initCharts();
-    initQuickActions();
-    
-    showSection('dashboard-home');
-    
-    startStatsPolling();
+const nameBox=document.getElementById("userEmail");
+if(nameBox)nameBox.textContent=localStorage.getItem("studentName")||"User";
+
+initNavigation();
+initQuickActions();
+showSection("dashboard-home");
+
+await initStats();
+await initCharts();
+startStatsPolling();
 });
 
-
-// ========== NAVIGATION ==========
-function initNavigation() {
-    const navLinks = document.querySelectorAll('.nav-link');
-    
-    navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            const href = this.getAttribute('href');
-            if (href && href.startsWith('#')) {
-                const sectionId = href.substring(1);
-                showSection(sectionId);
-            }
-            
-            navLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-        });
-    });
+function initNavigation(){
+document.querySelectorAll(".nav-link").forEach(link=>{
+link.onclick=(e)=>{
+e.preventDefault();
+const id=link.getAttribute("href").replace("#","");
+showSection(id);
+document.querySelectorAll(".nav-link").forEach(x=>x.classList.remove("active"));
+link.classList.add("active");
+};
+});
 }
 
-function showSection(sectionId) {
-    document.querySelectorAll('.page-section')
-        .forEach(section => section.classList.remove('active'));
-
-    const target = document.getElementById(sectionId);
-    if (target) {
-        target.classList.add('active');
-
-        switch(sectionId) {
-            case 'analytics': loadAnalytics(); break;
-            case 'predictions': loadPredictions(); break;
-            case 'recommendations': loadRecommendations(); break;
-            case 'qr-pairing': loadQRPairing(); break;
-        }
-    }
+function showSection(id){
+document.querySelectorAll(".page-section").forEach(s=>s.classList.remove("active"));
+const target=document.getElementById(id);
+if(target)target.classList.add("active");
 }
 
-
-// ========== STATS ==========
-async function initStats() {
-    try {
-        const stats = await fetchDashboardStats();
-        updateStatsCards(stats);
-    } catch (err) {
-        console.error(err);
-        // Use default values if fetch fails
-        updateStatsCards({
-            fatigueScore: 0,
-            productivityLoss: 0,
-            screenTime: 0,
-            sessions: 0
-        });
-    }
+async function fetchDashboardStats(){
+try{
+const token=localStorage.getItem("token");
+const res=await fetch(`${API_BASE}/usage/user/${localStorage.getItem("userId")}/recent?hours=24`,{
+headers:{Authorization:`Bearer ${token}`}
+});
+if(!res.ok)throw new Error("API error");
+const data=await res.json();
+const summary=data.summary||{};
+const predictions=data.predictions||[];
+let latestFatigue=0,latestProductivity=0;
+if(predictions.length>0){
+latestFatigue=predictions[0].fatigue_score||0;
+latestProductivity=predictions[0].productivity_score||0;
+}
+return{
+fatigueScore:latestFatigue,
+productivityScore:latestProductivity,
+screenTime:((summary.total_screen_time_minutes||0)/60).toFixed(1),
+sessions:(data.laptop_usage?.length||0)+(data.mobile_usage?.length||0),
+predictions:predictions
+};
+}catch(e){
+console.error(e);
+return{fatigueScore:0,productivityScore:0,screenTime:0,sessions:0,predictions:[]};
+}
 }
 
-async function fetchDashboardStats() {
-    // In a real app, this would fetch from API
-    // For now, return mock data
-    return {
-        fatigueScore: Math.floor(Math.random() * 30) + 50, // 50-80
-        productivityLoss: (Math.random() * 10 + 5).toFixed(1), // 5-15
-        screenTime: (Math.random() * 6 + 4).toFixed(1), // 4-10
-        sessions: Math.floor(Math.random() * 30) + 30 // 30-60
-    };
+async function initStats(){
+const stats=await fetchDashboardStats();
+setText("fatigue-score",`${stats.fatigueScore}%`);
+setText("screen-time",`${stats.screenTime}h`);
+setText("sessions",stats.sessions);
+window.latestStats=stats;
 }
 
-function updateStatsCards(stats) {
-    const fatigueEl = document.getElementById('fatigue-score');
-    if (fatigueEl) fatigueEl.textContent = `${stats.fatigueScore}%`;
-    
-    const productivityEl = document.getElementById('productivity-loss');
-    if (productivityEl) productivityEl.textContent = `${stats.productivityLoss}h`;
-    
-    const screenTimeEl = document.getElementById('screen-time');
-    if (screenTimeEl) screenTimeEl.textContent = `${stats.screenTime}h`;
-    
-    const sessionsEl = document.getElementById('sessions');
-    if (sessionsEl) sessionsEl.textContent = stats.sessions;
+function setText(id,val){
+const el=document.getElementById(id);
+if(el)el.textContent=val;
 }
 
-
-// ========== CHARTS ==========
-function initCharts() {
-    createFatigueChart();
-    createProductivityChart();
-    createUsageChart();
+async function initCharts(){
+const stats=window.latestStats||await fetchDashboardStats();
+createFatigueChart(stats.predictions||[]);
+createProductivityChart(stats.predictions||[]);
+createUsageChart();
 }
 
-
-function createFatigueChart() {
-    const ctx = document.getElementById('fatigueChart');
-    if (!ctx) return;
-
-    if (window.fatigueChart instanceof Chart) {
-        window.fatigueChart.destroy();
-    }
-
-    window.fatigueChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-                label: 'Fatigue Level',
-                data: [65, 59, 70, 71, 66, 55, 60],
-                borderColor: '#667eea',
-                backgroundColor: 'rgba(102,126,234,0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
+function createFatigueChart(predictions){
+const ctx=document.getElementById("fatigueChart");
+if(!ctx)return;
+const labels=[],values=[];
+predictions.slice(0,7).reverse().forEach(p=>{
+labels.push(new Date(p.timestamp).toLocaleDateString());
+values.push(p.fatigue_score);
+});
+if(window.fatigueChart)window.fatigueChart.destroy();
+window.fatigueChart=new Chart(ctx,{type:"line",data:{labels:labels,datasets:[{data:values}]},options:{responsive:true,maintainAspectRatio:false}});
 }
 
-
-function createProductivityChart() {
-    const ctx = document.getElementById('productivityChart');
-    if (!ctx) return;
-
-    if (window.productivityChart instanceof Chart) {
-        window.productivityChart.destroy();
-    }
-
-    window.productivityChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Week1', 'Week2', 'Week3', 'Week4'],
-            datasets: [{
-                label: 'Hours Lost',
-                data: [14, 12, 10, 8],
-                backgroundColor: 'rgba(102,126,234,0.8)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
-            }
-        }
-    });
+function createProductivityChart(predictions){
+const ctx=document.getElementById("productivityChart");
+if(!ctx)return;
+const labels=[],values=[];
+predictions.slice(0,7).reverse().forEach(p=>{
+labels.push(new Date(p.timestamp).toLocaleDateString());
+values.push(p.productivity_score);
+});
+if(window.productivityChart)window.productivityChart.destroy();
+window.productivityChart=new Chart(ctx,{type:"bar",data:{labels:labels,datasets:[{data:values}]},options:{responsive:true,maintainAspectRatio:false}});
 }
 
-
-function createUsageChart() {
-    const ctx = document.getElementById('usageChart');
-    if (!ctx) return;
-
-    if (window.usageChart instanceof Chart) {
-        window.usageChart.destroy();
-    }
-
-    window.usageChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Work', 'Social', 'Entertainment', 'Learning', 'Other'],
-            datasets: [{
-                data: [35, 25, 20, 15, 5],
-                backgroundColor: [
-                    '#667eea', '#764ba2', '#f59e0b', '#10b981', '#6b7280'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
-    });
+async function createUsageChart(){
+try{
+const token=localStorage.getItem("token");
+const res=await fetch(`${API_BASE}/usage/user/${localStorage.getItem("userId")}/recent?hours=24`,{
+headers:{Authorization:`Bearer ${token}`}
+});
+const data=await res.json();
+let work=0,social=0,other=0;
+(data.laptop_usage||[]).forEach(x=>{
+const cat=(x.app_category||"OTHER").toUpperCase();
+if(cat==="HIGH")work++;
+else if(cat==="MEDIUM")other++;
+else social++;
+});
+const ctx=document.getElementById("usageChart");
+if(!ctx)return;
+if(window.usageChart)window.usageChart.destroy();
+window.usageChart=new Chart(ctx,{type:"doughnut",data:{labels:["Work","Social","Other"],datasets:[{data:[work,social,other]}]},options:{responsive:true,maintainAspectRatio:false}});
+}catch(e){console.error(e);}
 }
 
-
-// ========== QUICK ACTIONS ==========
-function initQuickActions() {
-    document.querySelectorAll('.action-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            handleQuickAction(btn.dataset.action);
-        });
-    });
+function initQuickActions(){
+document.querySelectorAll(".action-btn").forEach(btn=>{
+btn.onclick=()=>{if(btn.dataset.action==="view-insights")showSection("analytics");if(btn.dataset.action==="pair-device")showSection("qr-pairing");};
+});
 }
 
-function handleQuickAction(action) {
-    switch(action) {
-        case 'view-insights': 
-            showSection('analytics'); 
-            break;
-        case 'pair-device': 
-            showSection('qr-pairing'); 
-            break;
-        default: 
-            alert("Action: " + action);
-    }
-}
-
-
-// ========== LOADERS ==========
-async function loadAnalytics() { 
-    console.log("analytics load"); 
-}
-
-async function loadPredictions() { 
-    console.log("predictions load"); 
-}
-
-async function loadRecommendations() { 
-    console.log("recommendations load"); 
-}
-
-async function loadQRPairing() { 
-    generateQRCode(); 
-}
-
-
-// ========== QR ==========
-function generateQRCode() {
-    const box = document.getElementById('qrcode');
-    if (!box) return;
-
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-
-    box.innerHTML = `
-        <div style="padding:30px;border:2px dashed #667eea;text-align:center">
-            <h2>${code}</h2>
-            <small>Scan with mobile</small>
-        </div>`;
-    
-    // Update the pairing code display
-    const codeEl = document.querySelector('.pairing-code strong');
-    if (codeEl) codeEl.textContent = code;
-}
-
-
-// ========== POLLING ==========
 let statsInterval;
-function startStatsPolling() {
-    if (statsInterval) clearInterval(statsInterval);
-
-    statsInterval = setInterval(() => {
-        const active = document.querySelector('.page-section.active');
-        if (active && active.id === "dashboard-home") {
-            initStats();
-        }
-    }, 120000); // 2 minutes
+function startStatsPolling(){
+if(statsInterval)clearInterval(statsInterval);
+statsInterval=setInterval(async()=>{
+const active=document.querySelector(".page-section.active");
+if(active&&active.id==="dashboard-home"){
+await initStats();
+await initCharts();
+}
+},60000);
 }

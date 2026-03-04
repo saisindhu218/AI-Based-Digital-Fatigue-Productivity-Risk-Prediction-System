@@ -1,12 +1,17 @@
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 document.addEventListener("DOMContentLoaded", () => {
-    const page = location.pathname.split("/").pop() || "login.html";
-    
+
+    const token = localStorage.getItem("token");
+
+    // If we are on login page AND already logged in → go to dashboard
+    if (window.location.pathname.includes("login.html") && token) {
+        window.location.href = "index.html";
+        return;
+    }
+
     if (document.getElementById("login-form")) setupLogin();
     if (document.getElementById("register-form")) setupRegister();
-    
-    checkAuth(page);
     showUserName();
 });
 
