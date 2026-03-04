@@ -1,262 +1,249 @@
 """
-Feature extraction for ML models
+REAL LIVE Feature extraction for fatigue and productivity ML models
+Uses behavioral metrics: keystrokes, mouse, idle, app switching, cognitive load
 """
+
 import numpy as np
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from datetime import datetime
+from typing import Dict,List,Optional
+
 
 class LiveFeatureExtractor:
-    """Extract features from live usage data"""
-    
+
     def __init__(self):
         pass
-    
-    def extract_features_from_live_data(
-        self,
-        laptop_data: List[Dict],
-        mobile_data: List[Dict],
-        user_id: Optional[str] = None
-    ) -> Dict[str, float]:
-        """Extract features from live usage data"""
-        
-        # Combine all data
-        all_data = laptop_data + mobile_data
-        
+
+    def extract_features_from_live_data(self,laptop_data:List[Dict],mobile_data:List[Dict],user_id:Optional[str]=None)->Dict[str,float]:
+
+        all_data=laptop_data+mobile_data
         if not all_data:
             return self._get_default_features()
-        
+
         try:
-            # Calculate features
-            total_screen_time = sum(self._get_duration(item) for item in all_data) / 3600  # hours
-            
-            # Average session length
-            session_count = len(all_data)
-            avg_session = total_screen_time / max(session_count, 1)
-            
-            # Breaks (gaps > 5 minutes)
-            breaks = self._calculate_breaks(all_data)
-            
-            # Night usage ratio (10PM-6AM)
-            night_ratio = self._calculate_night_ratio(all_data)
-            
-            # Productive ratio
-            productive_ratio = self._calculate_productive_ratio(all_data)
-            
-            # Social media ratio
-            social_ratio = self._calculate_social_ratio(all_data)
-            
-            # Entertainment ratio
-            entertainment_ratio = self._calculate_entertainment_ratio(all_data)
-            
-            # Focus score
-            focus_score = self._calculate_focus_score(all_data)
-            
+
+            total_screen_seconds=sum(self._get_duration(x) for x in all_data)
+            total_screen_hours=total_screen_seconds/3600
+
+            session_count=len(all_data)
+            avg_session_hours=total_screen_hours/max(session_count,1)
+
+            total_idle_seconds=sum(float(x.get("idle_time_seconds",0)) for x in laptop_data)
+            idle_ratio=total_idle_seconds/max(total_screen_seconds,1)
+
+            total_keystrokes=sum(int(x.get("keystrokes",0)) for x in laptop_data)
+            keystrokes_per_hour=total_keystrokes/max(total_screen_hours,1)
+
+            total_mouse=sum(int(x.get("mouse_clicks",0))+int(x.get("mouse_moves",0)) for x in laptop_data)
+            mouse_per_hour=total_mouse/max(total_screen_hours,1)
+
+            total_switches=sum(int(x.get("app_switches",0)) for x in laptop_data)
+            switches_per_hour=total_switches/max(total_screen_hours,1)
+
+            breaks=self._calculate_breaks(all_data)
+
+            night_ratio=self._calculate_night_ratio(all_data)
+
+            productive_ratio=self._calculate_productive_ratio(all_data)
+
+            cognitive_load=self._calculate_cognitive_load(laptop_data)
+
+            focus_score=self._calculate_focus_score(productive_ratio,idle_ratio,switches_per_hour)
+
+            fatigue_index=self._calculate_fatigue_index(
+                total_screen_hours,
+                idle_ratio,
+                keystrokes_per_hour,
+                mouse_per_hour,
+                switches_per_hour,
+                cognitive_load
+            )
+
             return {
-                'screen_time': round(total_screen_time, 2),
-                'avg_session': round(avg_session, 2),
-                'breaks': breaks,
-                'night_ratio': round(night_ratio, 2),
-                'productive_ratio': round(productive_ratio, 2),
-                'social_ratio': round(social_ratio, 2),
-                'entertainment_ratio': round(entertainment_ratio, 2),
-                'focus_score': round(focus_score, 2)
+                "screen_time":round(total_screen_hours,2),
+                "avg_session":round(avg_session_hours,2),
+                "breaks":breaks,
+                "night_ratio":round(night_ratio,2),
+                "productive_ratio":round(productive_ratio,2),
+                "focus_score":round(focus_score,2),
+                "idle_ratio":round(idle_ratio,3),
+                "keystrokes_per_hour":round(keystrokes_per_hour,2),
+                "mouse_per_hour":round(mouse_per_hour,2),
+                "switches_per_hour":round(switches_per_hour,2),
+                "cognitive_load":round(cognitive_load,2),
+                "fatigue_index":round(fatigue_index,2)
             }
-            
+
         except Exception as e:
-            print(f"⚠️ Error extracting features: {e}")
+            print("Feature extraction error:",e)
             return self._get_default_features()
-    
-    def prepare_for_classification(self, features: Dict) -> np.ndarray:
-        """Prepare features for fatigue classification"""
-        # Order matters - must match training
-        feature_order = [
-            'screen_time', 'avg_session', 'breaks', 
-            'night_ratio', 'productive_ratio'
+
+    def prepare_for_classification(self,features:Dict)->np.ndarray:
+
+        order=[
+            "screen_time",
+            "avg_session",
+            "breaks",
+            "night_ratio",
+            "productive_ratio"
         ]
-        
-        values = [features.get(f, 0) for f in feature_order]
-        return np.array(values).reshape(1, -1)
-    
-    def prepare_for_regression(self, features: Dict) -> np.ndarray:
-        """Prepare features for productivity loss regression"""
-        # Order matters - must match training
-        feature_order = [
-            'screen_time', 'avg_session', 'breaks',
-            'night_ratio', 'productive_ratio', 'focus_score'
+
+        values=[features.get(x,0) for x in order]
+        return np.array(values).reshape(1,-1)
+
+    def prepare_for_regression(self,features:Dict)->np.ndarray:
+
+        order=[
+            "screen_time",
+            "avg_session",
+            "breaks",
+            "night_ratio",
+            "productive_ratio",
+            "focus_score"
         ]
-        
-        values = [features.get(f, 0) for f in feature_order]
-        return np.array(values).reshape(1, -1)
-    
-    def _get_duration(self, item: Dict) -> float:
-        """Extract duration in seconds"""
-        if 'duration' in item:
-            return float(item['duration'])
-        elif 'usage_duration' in item:
-            return float(item['usage_duration'])
-        elif 'screen_time' in item:
-            return float(item['screen_time'])
+
+        values=[features.get(x,0) for x in order]
+        return np.array(values).reshape(1,-1)
+
+    def _get_duration(self,item:Dict)->float:
+
+        if "usage_duration" in item:
+            return float(item["usage_duration"])*60
+        if "screen_time" in item:
+            return float(item["screen_time"])
+        if "duration" in item:
+            return float(item["duration"])
         return 0
-    
-    def _calculate_breaks(self, data: List[Dict]) -> int:
-        """Calculate number of breaks (>5 min gaps)"""
-        if len(data) < 2:
+
+    def _calculate_breaks(self,data:List[Dict])->int:
+
+        if len(data)<2:
             return 0
-        
-        breaks = 0
-        # Sort by timestamp
-        sorted_data = sorted(data, key=lambda x: self._get_timestamp(x))
-        
-        for i in range(1, len(sorted_data)):
-            prev_time = self._get_timestamp(sorted_data[i-1])
-            curr_time = self._get_timestamp(sorted_data[i])
-            
-            if prev_time and curr_time:
-                gap = (curr_time - prev_time).total_seconds()
-                if gap > 300:  # 5 minutes
-                    breaks += 1
-        
+
+        sorted_data=sorted(data,key=lambda x:self._get_timestamp(x) or datetime.utcnow())
+        breaks=0
+
+        for i in range(1,len(sorted_data)):
+
+            prev=self._get_timestamp(sorted_data[i-1])
+            curr=self._get_timestamp(sorted_data[i])
+
+            if prev and curr:
+                gap=(curr-prev).total_seconds()
+                if gap>300:
+                    breaks+=1
+
         return breaks
-    
-    def _get_timestamp(self, item: Dict) -> Optional[datetime]:
-        """Extract timestamp from item"""
-        if 'timestamp' in item:
-            ts = item['timestamp']
-            if isinstance(ts, datetime):
-                return ts
-            elif isinstance(ts, str):
-                try:
-                    return datetime.fromisoformat(ts.replace('Z', '+00:00'))
-                except:
-                    pass
+
+    def _get_timestamp(self,item:Dict)->Optional[datetime]:
+
+        ts=item.get("timestamp")
+
+        if isinstance(ts,datetime):
+            return ts
+
+        if isinstance(ts,str):
+            try:
+                return datetime.fromisoformat(ts.replace("Z","+00:00"))
+            except:
+                return None
+
         return None
-    
-    def _calculate_night_ratio(self, data: List[Dict]) -> float:
-        """Calculate ratio of usage during night hours (10PM-6AM)"""
-        night_hours = [22, 23, 0, 1, 2, 3, 4, 5]
-        night_duration = 0
-        total_duration = 0
-        
+
+    def _calculate_night_ratio(self,data:List[Dict])->float:
+
+        night_seconds=0
+        total_seconds=0
+
         for item in data:
-            duration = self._get_duration(item)
-            total_duration += duration
-            
-            ts = self._get_timestamp(item)
-            if ts and ts.hour in night_hours:
-                night_duration += duration
-        
-        if total_duration == 0:
-            return 0
-            
-        return night_duration / total_duration
-    
-    def _calculate_productive_ratio(self, data: List[Dict]) -> float:
-        """Calculate ratio of productive app usage"""
-        productive_categories = [
-            'work', 'coding', 'development', 'vscode', 'pycharm',
-            'word', 'excel', 'powerpoint', 'outlook', 'slack',
-            'teams', 'zoom', 'meet', 'research', 'learning',
-            'documentation', 'terminal', 'cmd', 'powershell'
+
+            duration=self._get_duration(item)
+            total_seconds+=duration
+
+            ts=self._get_timestamp(item)
+
+            if ts and ts.hour>=22 or ts and ts.hour<=5:
+                night_seconds+=duration
+
+        return night_seconds/max(total_seconds,1)
+
+    def _calculate_productive_ratio(self,data:List[Dict])->float:
+
+        productive_keywords=[
+            "code","pycharm","studio","terminal","word","excel",
+            "research","docs","learning","notepad","powershell"
         ]
-        
-        productive_duration = 0
-        total_duration = 0
-        
+
+        productive=0
+        total=0
+
         for item in data:
-            duration = self._get_duration(item)
-            total_duration += duration
-            
-            category = str(item.get('category', '')).lower()
-            app_name = str(item.get('app_name', '')).lower()
-            
-            if any(cat in category or cat in app_name for cat in productive_categories):
-                productive_duration += duration
-        
-        if total_duration == 0:
-            return 0.5  # Default
-            
-        return productive_duration / total_duration
-    
-    def _calculate_social_ratio(self, data: List[Dict]) -> float:
-        """Calculate ratio of social media usage"""
-        social_categories = [
-            'social', 'facebook', 'instagram', 'twitter', 'whatsapp',
-            'telegram', 'discord', 'reddit', 'tiktok', 'snapchat',
-            'messenger', 'linkedin', 'social_media'
-        ]
-        
-        social_duration = 0
-        total_duration = 0
-        
+
+            duration=self._get_duration(item)
+            total+=duration
+
+            name=str(item.get("active_app","")+item.get("app_name","")).lower()
+
+            if any(x in name for x in productive_keywords):
+                productive+=duration
+
+        return productive/max(total,1)
+
+    def _calculate_cognitive_load(self,data:List[Dict])->float:
+
+        load=0
+        total=0
+
         for item in data:
-            duration = self._get_duration(item)
-            total_duration += duration
-            
-            category = str(item.get('category', '')).lower()
-            app_name = str(item.get('app_name', '')).lower()
-            
-            if any(cat in category or cat in app_name for cat in social_categories):
-                social_duration += duration
-        
-        if total_duration == 0:
-            return 0.1  # Default
-            
-        return social_duration / total_duration
-    
-    def _calculate_entertainment_ratio(self, data: List[Dict]) -> float:
-        """Calculate ratio of entertainment usage"""
-        entertainment_categories = [
-            'entertainment', 'youtube', 'netflix', 'prime', 'hotstar',
-            'music', 'spotify', 'game', 'gaming', 'video', 'movie',
-            'tv', 'streaming', 'hulu', 'disney'
-        ]
-        
-        entertainment_duration = 0
-        total_duration = 0
-        
-        for item in data:
-            duration = self._get_duration(item)
-            total_duration += duration
-            
-            category = str(item.get('category', '')).lower()
-            app_name = str(item.get('app_name', '')).lower()
-            
-            if any(cat in category or cat in app_name for cat in entertainment_categories):
-                entertainment_duration += duration
-        
-        if total_duration == 0:
-            return 0.2  # Default
-            
-        return entertainment_duration / total_duration
-    
-    def _calculate_focus_score(self, data: List[Dict]) -> float:
-        """Calculate focus score (0-100)"""
-        if not data:
-            return 70  # Default
-        
-        productive_ratio = self._calculate_productive_ratio(data)
-        social_ratio = self._calculate_social_ratio(data)
-        entertainment_ratio = self._calculate_entertainment_ratio(data)
-        
-        # Focus = high productive, low social, low entertainment
-        focus_score = (
-            productive_ratio * 70 -  # Positive for productive
-            social_ratio * 20 -      # Negative for social
-            entertainment_ratio * 10  # Negative for entertainment
-        ) * 100
-        
-        # Clamp to 0-100
-        return max(0, min(100, focus_score))
-    
-    def _get_default_features(self) -> Dict[str, float]:
-        """Return default features when no data"""
+
+            category=str(item.get("app_category","MEDIUM")).upper()
+
+            if category=="HIGH":
+                load+=3
+            elif category=="MEDIUM":
+                load+=2
+            else:
+                load+=1
+
+            total+=1
+
+        return load/max(total,1)
+
+    def _calculate_focus_score(self,productive_ratio,idle_ratio,switches_per_hour)->float:
+
+        score=(
+            productive_ratio*100
+            -idle_ratio*50
+            -switches_per_hour*2
+        )
+
+        return max(0,min(100,score))
+
+    def _calculate_fatigue_index(self,screen,idle,keys,mouse,switches,cognitive)->float:
+
+        fatigue=(
+            screen*5
+            +idle*50
+            +switches*1.5
+            +cognitive*10
+            -keys*0.01
+            -mouse*0.005
+        )
+
+        return max(0,min(100,fatigue))
+
+    def _get_default_features(self)->Dict[str,float]:
+
         return {
-            'screen_time': 4.0,
-            'avg_session': 1.5,
-            'breaks': 2,
-            'night_ratio': 0.2,
-            'productive_ratio': 0.6,
-            'social_ratio': 0.15,
-            'entertainment_ratio': 0.15,
-            'focus_score': 70.0
+            "screen_time":2.0,
+            "avg_session":0.5,
+            "breaks":1,
+            "night_ratio":0.1,
+            "productive_ratio":0.6,
+            "focus_score":70,
+            "idle_ratio":0.1,
+            "keystrokes_per_hour":200,
+            "mouse_per_hour":300,
+            "switches_per_hour":10,
+            "cognitive_load":2,
+            "fatigue_index":30
         }
