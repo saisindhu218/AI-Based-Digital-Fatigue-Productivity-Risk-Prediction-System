@@ -1,267 +1,212 @@
-// Authentication module
-class AuthManager {
-    constructor() {
-        this.apiBaseUrl = 'http://localhost:8000/api/v1';
-        this.token = localStorage.getItem('authToken');
-        this.user = JSON.parse(localStorage.getItem('user') || '{}');
+const API_BASE_URL = "http://127.0.0.1:8000";
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    const token = localStorage.getItem("token");
+
+    // If already logged in and user opens login page → redirect to dashboard
+    if (window.location.pathname.includes("login.html") && token) {
+        window.location.href = "index.html";
+        return;
     }
 
-    async login(email, password) {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/auth/login`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email, password })
-            });
+    if (document.getElementById("login-form")) setupLogin();
+    if (document.getElementById("register-form")) setupRegister();
 
-            if (!response.ok) {
-                throw new Error('Login failed');
-            }
+    showUserName();
+});
 
-            const data = await response.json();
-            
-            // Store tokens and user data
-            localStorage.setItem('authToken', data.access_token);
-            localStorage.setItem('tokenType', data.token_type);
-            
-            // Decode JWT to get user info (simplified)
-            const tokenData = JSON.parse(atob(data.access_token.split('.')[1]));
-            this.user = {
-                email: tokenData.sub,
-                userId: tokenData.sub // In production, get from user endpoint
-            };
-            
-            localStorage.setItem('user', JSON.stringify(this.user));
-            
-            return { success: true, user: this.user };
-            
-        } catch (error) {
-            console.error('Login error:', error);
-            return { success: false, error: error.message };
+function checkAuth(page) {
+
+    const token = localStorage.getItem("token");
+
+    if (page === "index.html" && !token) {
+        location.href = "login.html";
+    }
+
+    if ((page === "login.html" || page === "register.html") && token) {
+        location.href = "index.html";
+    }
+}
+
+
+// ================= REGISTER =================
+
+function setupRegister() {
+
+    const form = document.getElementById("register-form");
+    if (!form) return;
+
+    form.addEventListener("submit", async (e) => {
+
+        e.preventDefault();
+
+        const name = document.getElementById("full-name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        const confirm = document.getElementById("confirm-password")?.value;
+
+        if (!name || !email || !password) {
+            alert("All fields are required");
+            return;
         }
-    }
 
-    async register(fullName, email, password) {
+        if (password.length < 6) {
+            alert("Password must be at least 6 characters");
+            return;
+        }
+
+        if (confirm && password !== confirm) {
+            alert("Passwords do not match");
+            return;
+        }
+
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = "Registering...";
+
         try {
-            const response = await fetch(`${this.apiBaseUrl}/auth/register`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+
+            const res = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     email: email,
-                    full_name: fullName,
+                    full_name: name,
                     password: password
                 })
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Registration failed');
+            const data = await res.json();
+
+            if (!res.ok) {
+                alert(data.detail || "Registration failed");
+                btn.disabled = false;
+                btn.textContent = "Register";
+                return;
             }
 
-            const userData = await response.json();
-            
-            // Auto-login after registration
-            return await this.login(email, password);
-            
+            alert("Registration successful! Please login.");
+            location.href = "login.html";
+
         } catch (error) {
-            console.error('Registration error:', error);
-            return { success: false, error: error.message };
+
+            alert("Network error. Is backend running?");
+            btn.disabled = false;
+            btn.textContent = "Register";
+
         }
-    }
 
-    logout() {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('tokenType');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userId');
-        this.token = null;
-        this.user = {};
-        
-        // Redirect to login page
-        window.location.href = 'login.html';
-    }
+    });
 
-    isAuthenticated() {
-        const token = localStorage.getItem('authToken');
-        if (!token) return false;
+}
 
-        // Check token expiration (simplified)
+
+// ================= LOGIN =================
+
+function setupLogin() {
+
+    const form = document.getElementById("login-form");
+    if (!form) return;
+
+    form.addEventListener("submit", async (e) => {
+
+        e.preventDefault();
+
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        if (!email || !password) {
+            alert("Email and password required");
+            return;
+        }
+
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = "Logging in...";
+
         try {
-            const tokenData = JSON.parse(atob(token.split('.')[1]));
-            const expiration = tokenData.exp * 1000; // Convert to milliseconds
-            return Date.now() < expiration;
+
+            const res = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                alert(data.detail || "Login failed");
+                btn.disabled = false;
+                btn.textContent = "Login";
+                return;
+            }
+
+            console.log("Login success", data);
+
+            // Extract username from email
+            const username = email.split("@")[0];
+
+            // Store login info
+            localStorage.setItem("token", data.access_token);
+            localStorage.setItem("studentName", username);
+            localStorage.setItem("userId", username);
+
+            // Notify backend about active user (optional)
+            try {
+
+                await fetch(`${API_BASE_URL}/api/v1/pairing/save-user`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        user_id: username
+                    })
+                });
+
+            } catch (err) {
+
+                console.warn("Could not save active user");
+
+            }
+
+            location.href = "index.html";
+
         } catch (error) {
-            return false;
+
+            alert("Network error. Is backend running?");
+            btn.disabled = false;
+            btn.textContent = "Login";
+
         }
-    }
 
-    getAuthHeaders() {
-        const token = localStorage.getItem('authToken');
-        return {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        };
-    }
-
-    getCurrentUser() {
-        return this.user;
-    }
-
-    async refreshToken() {
-        // Implement token refresh logic
-        // This would call a refresh endpoint if available
-        console.log('Token refresh would be implemented here');
-        return this.token;
-    }
-}
-
-// Create global auth instance
-window.authManager = new AuthManager();
-
-// Login page functionality
-if (window.location.pathname.includes('login.html') || 
-    window.location.pathname === '/login') {
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        const loginForm = document.getElementById('login-form');
-        
-        if (loginForm) {
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const submitBtn = document.querySelector('button[type="submit"]');
-                const errorDiv = document.getElementById('error-message');
-                
-                // Show loading state
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
-                
-                if (errorDiv) errorDiv.style.display = 'none';
-                
-                try {
-                    const result = await authManager.login(email, password);
-                    
-                    if (result.success) {
-                        // Redirect to dashboard
-                        window.location.href = 'index.html';
-                    } else {
-                        throw new Error(result.error);
-                    }
-                } catch (error) {
-                    if (errorDiv) {
-                        errorDiv.textContent = error.message;
-                        errorDiv.style.display = 'block';
-                    }
-                    
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Login';
-                }
-            });
-        }
-        
-        // Check if already logged in
-        if (authManager.isAuthenticated()) {
-            window.location.href = 'index.html';
-        }
     });
+
 }
 
-// Register page functionality
-if (window.location.pathname.includes('register.html') || 
-    window.location.pathname === '/register') {
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        const registerForm = document.getElementById('register-form');
-        
-        if (registerForm) {
-            registerForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const fullName = document.getElementById('full-name').value;
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const confirmPassword = document.getElementById('confirm-password').value;
-                const submitBtn = document.querySelector('button[type="submit"]');
-                const errorDiv = document.getElementById('error-message');
-                
-                // Validate passwords match
-                if (password !== confirmPassword) {
-                    if (errorDiv) {
-                        errorDiv.textContent = 'Passwords do not match';
-                        errorDiv.style.display = 'block';
-                    }
-                    return;
-                }
-                
-                // Validate password strength
-                if (password.length < 6) {
-                    if (errorDiv) {
-                        errorDiv.textContent = 'Password must be at least 6 characters';
-                        errorDiv.style.display = 'block';
-                    }
-                    return;
-                }
-                
-                // Show loading state
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating account...';
-                
-                if (errorDiv) errorDiv.style.display = 'none';
-                
-                try {
-                    const result = await authManager.register(fullName, email, password);
-                    
-                    if (result.success) {
-                        // Redirect to dashboard
-                        window.location.href = 'index.html';
-                    } else {
-                        throw new Error(result.error);
-                    }
-                } catch (error) {
-                    if (errorDiv) {
-                        errorDiv.textContent = error.message;
-                        errorDiv.style.display = 'block';
-                    }
-                    
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Register';
-                }
-            });
-        }
-        
-        // Check if already logged in
-        if (authManager.isAuthenticated()) {
-            window.location.href = 'index.html';
-        }
-    });
-}
+// ================= USER NAME DISPLAY =================
 
-// Auto-check authentication on protected pages
-if (!window.location.pathname.includes('login.html') && 
-    !window.location.pathname.includes('register.html') &&
-    window.location.pathname !== '/login' &&
-    window.location.pathname !== '/register') {
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        if (!authManager.isAuthenticated()) {
-            window.location.href = 'login.html';
-        }
-    });
-}
+function showUserName() {
 
-// Logout functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            authManager.logout();
-        });
+    const box = document.getElementById("userEmail");
+
+    if (box) {
+        box.textContent = localStorage.getItem("studentName") || "User";
     }
+
+}
+
+
+// ================= LOGOUT =================
+
+document.addEventListener("click", (e) => {
+
+    if (e.target.id === "logoutBtn" || e.target.closest("#logoutBtn")) {
+
+        localStorage.clear();
+        location.href = "login.html";
+
+    }
+
 });

@@ -1,96 +1,159 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, HTTPException, status, Request
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from config import settings
-from models.user import UserCreate, UserInDB, Token, UserLogin
-from database import db
+from src.config import settings
+from src.models.user import UserCreate, UserInDB, Token, UserLogin
+from src.database import db
 import uuid
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
+# Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
+
 def get_password_hash(password: str) -> str:
-    # bcrypt hard limit = 72 bytes
-    if len(password.encode("utf-8")) > 72:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password too long (maximum 72 characters allowed)"
-        )
     return pwd_context.hash(password)
 
-
-async def authenticate_user(email: str, password: str):
-    user = await db.db.users.find_one({"email": email})
-    if not user:
-        return False
-    if not verify_password(password, user["hashed_password"]):
-        return False
-    return user
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
-@router.post("/register", response_model=UserInDB)
+
+# ========== REGISTER ==========
+@router.post("/register", response_model=UserInDB, status_code=201)
 async def register(user_data: UserCreate):
-    # Check if user exists
-    existing_user = await db.db.users.find_one({"email": user_data.email})
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    """Register a new user"""
+    # Check database connection
+    if db.db is None:
+        print("❌ Database not connected")
+        raise HTTPException(status_code=503, detail="Database connection not available")
+    
+    try:
+        email = user_data.email.lower().strip()
+        print(f"📝 Registering: {email}")
+        
+        # Check if user exists
+        existing = await db.db.users.find_one({"email": email})
+        if existing:
+            print(f"❌ Email already exists: {email}")
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Create user
+        user_id = str(uuid.uuid4())
+        hashed = get_password_hash(user_data.password)
+        
+        user = {
+            "_id": user_id,
+            "email": email,
+            "full_name": user_data.full_name.strip(),
+            "hashed_password": hashed,
+            "created_at": datetime.utcnow(),
+            "is_active": True,
+            "devices": []
+        }
+        
+        # Insert into database
+        result = await db.db.users.insert_one(user)
+        print(f"✅ Inserted with ID: {result.inserted_id}")
+        
+        # Verify it was saved
+        saved = await db.db.users.find_one({"_id": user_id})
+        if saved:
+            print(f"✅ Verified user in database: {email}")
+        else:
+            print(f"❌ Failed to verify user in database")
+            raise HTTPException(status_code=500, detail="Failed to save user")
+        
+        return UserInDB(
+            id=user_id,
+            email=email,
+            full_name=user_data.full_name,
+            created_at=user["created_at"],
+            is_active=True,
+            devices=[]
         )
-    
-    # Create new user
-    user_id = str(uuid.uuid4())
-    hashed_password = get_password_hash(user_data.password)
-    
-    user = {
-        "_id": user_id,
-        "email": user_data.email,
-        "full_name": user_data.full_name,
-        "hashed_password": hashed_password,
-        "created_at": datetime.utcnow(),
-        "is_active": True,
-        "devices": []
-    }
-    
-    await db.db.users.insert_one(user)
-    
-    return UserInDB(
-        id=user_id,
-        email=user_data.email,
-        full_name=user_data.full_name,
-        created_at=user["created_at"],
-        is_active=True
-    )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Registration error: {e}")
+        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
+
+# ========== LOGIN ==========
 @router.post("/login", response_model=Token)
-async def login(form_data: UserLogin):
-    user = await authenticate_user(form_data.email, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+async def login(user_data: UserLogin):
+
+    if db.db is None:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    try:
+        email = user_data.email.lower().strip()
+        password = user_data.password
+
+        print(f"🔐 Login attempt: {email}")
+
+        if not email or not password:
+            raise HTTPException(status_code=400, detail="Email and password required")
+
+        # Find user
+        user = await db.db.users.find_one({"email": email})
+        if not user:
+            print(f"❌ User not found: {email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+        # Verify password
+        if not verify_password(password, user["hashed_password"]):
+            print(f"❌ Wrong password for: {email}")
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+
+        # Create token
+        token = create_access_token({"sub": email, "user_id": user["_id"]})
+        print(f"✅ Login successful: {email}")
+
+        return Token(access_token=token, token_type="bearer")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Login error: {e}")
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+
+# ========== DEBUG - Check users ==========
+@router.get("/debug")
+async def debug_users():
+    """List all users (debug only)"""
+    if db.db is None:
+        return {"error": "Database not connected"}
     
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user["email"]}, expires_delta=access_token_expires
-    )
-    
-    return Token(access_token=access_token, token_type="bearer")
+    try:
+        # Get all users
+        users = []
+        cursor = db.db.users.find({}, {"hashed_password": 0})
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            users.append(doc)
+        
+        # Count total
+        total = await db.db.users.count_documents({})
+        
+        return {
+            "connected": True,
+            "total_users": total,
+            "users": users,
+            "database": settings.DATABASE_NAME
+        }
+    except Exception as e:
+        return {"error": str(e)}

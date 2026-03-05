@@ -1,53 +1,90 @@
 #!/usr/bin/env python3
 """
-HTTP server with CORS support
+Simple HTTP server for web app (Fixed Version)
 """
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+import http.server
 import socketserver
-import webbrowser
-import threading
-import time
 import os
+import sys
+import webbrowser
+from pathlib import Path
+
+# Force UTF-8 console output
+sys.stdout.reconfigure(encoding="utf-8", errors="ignore")
 
 PORT = 8080
+WEB_DIR = Path(__file__).parent.resolve()
 
-class CORSRequestHandler(SimpleHTTPRequestHandler):
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=str(WEB_DIR), **kwargs)
+
+    def do_GET(self):
+        """
+        Fix routing:
+        /  -> index.html
+        """
+
+        # ROOT ROUTE FIX
+        if self.path in ("/", ""):
+            self.path = "/index.html"
+
+        # If file doesn't exist → try .html
+        requested = WEB_DIR / self.path.strip("/")
+        if not requested.exists():
+            alt = WEB_DIR / (self.path.strip("/") + ".html")
+            if alt.exists():
+                self.path = "/" + alt.name
+
+        return super().do_GET()
+
     def end_headers(self):
-        # Add CORS headers
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        """Allow frontend JS API calls"""
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         super().end_headers()
-    
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.end_headers()
 
-def open_browser():
-    """Open browser after delay"""
-    time.sleep(2)
-    webbrowser.open(f"http://localhost:{PORT}")
+    def log_message(self, format, *args):
+        print(f"[WEB] {self.address_string()} - {format % args}")
 
-if __name__ == "__main__":
+
+def main():
+    os.chdir(WEB_DIR)
+
     print("=" * 60)
-    print("   Digital Fatigue Prediction System - Web App")
+    print("Digital Fatigue Guard - Web Application Server")
     print("=" * 60)
-
-    print(f"📁 Serving directory: {os.getcwd()}")
-
-    # Open browser in background thread
-    threading.Thread(target=open_browser, daemon=True).start()
+    print(f"Serving from: {WEB_DIR}")
+    print(f"Local URL: http://localhost:{PORT}")
+    print("=" * 60)
 
     try:
-        with socketserver.TCPServer(("", PORT), CORSRequestHandler) as httpd:
-            print(f"\n🌐 Serving at http://localhost:{PORT}")
-            print("   CORS headers enabled")
-            print("\n🛑 Press Ctrl+C to stop")
-            print("=" * 60)
+        with socketserver.TCPServer(("", PORT), Handler) as httpd:
+            print(f"Server started on port {PORT}")
+            print("Press Ctrl+C to stop\n")
+
+            # Auto-open browser
+            webbrowser.open(f"http://localhost:{PORT}")
 
             httpd.serve_forever()
 
+    except OSError:
+        print(f"\nPort {PORT} already in use.")
+        print("Close other servers or change port number.")
+
     except KeyboardInterrupt:
-        print("\n\nServer stopped by user")
+        print("\nServer stopped")
+
     except Exception as e:
-        print(f"\nError: {e}")
+        print(f"\nUnexpected error: {e}")
+
+
+if __name__ == "__main__":
+    main()

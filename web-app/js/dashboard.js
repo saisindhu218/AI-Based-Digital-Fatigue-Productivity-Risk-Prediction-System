@@ -1,296 +1,265 @@
-// Dashboard functionality
-class Dashboard {
-    constructor() {
-        this.apiBaseUrl = 'http://localhost:8000/api/v1';
-        this.userId = localStorage.getItem('userId');
-        this.token = localStorage.getItem('authToken');
-        
-        this.init();
-    }
-    
-    init() {
-        this.setupNavigation();
-        this.loadDashboardData();
-        this.setupEventListeners();
-        this.updateLiveData();
-    }
-    
-    setupNavigation() {
-        const navLinks = document.querySelectorAll('.nav-link');
-        const sections = document.querySelectorAll('.section');
-        
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetId = link.getAttribute('href').substring(1);
-                
-                // Update active nav link
-                navLinks.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-                
-                // Show target section
-                sections.forEach(section => {
-                    section.classList.remove('active');
-                    if (section.id === targetId) {
-                        section.classList.add('active');
-                    }
-                });
-                
-                // Load section-specific data
-                this.loadSectionData(targetId);
-            });
-        });
-    }
-    
-    async loadDashboardData() {
-        if (!this.userId || !this.token) {
-            window.location.href = 'login.html';
-            return;
-        }
-        
-        try {
-            // Load fatigue prediction
-            const prediction = await this.fetchPrediction();
-            this.updateFatigueDisplay(prediction);
-            
-            // Load usage data
-            const usageData = await this.fetchUsageData();
-            this.updateUsageDisplay(usageData);
-            
-            // Load device status
-            const devices = await this.fetchDeviceStatus();
-            this.updateDeviceStatus(devices);
-            
-        } catch (error) {
-            console.error('Error loading dashboard data:', error);
-            this.showError('Failed to load dashboard data');
-        }
-    }
-    
-    async fetchPrediction() {
-        const response = await fetch(`${this.apiBaseUrl}/prediction/predict`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.token}`
-            },
-            body: JSON.stringify({
-                user_id: this.userId,
-                timestamp: new Date().toISOString(),
-                features: {}
-            })
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch prediction');
-        return await response.json();
-    }
-    
-    async fetchUsageData(hours = 24) {
-        const response = await fetch(
-            `${this.apiBaseUrl}/usage/user/${this.userId}/recent?hours=${hours}`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${this.token}`
-                }
-            }
-        );
-        
-        if (!response.ok) throw new Error('Failed to fetch usage data');
-        return await response.json();
-    }
-    
-    async fetchDeviceStatus() {
-        // In production, implement actual device status check
-        return {
-            laptop: { connected: true, lastActive: '2 minutes ago' },
-            mobile: { connected: true, lastActive: '5 minutes ago' }
-        };
-    }
-    
-    updateFatigueDisplay(prediction) {
-        document.getElementById('fatigue-score').textContent = 
-            Math.round(prediction.fatigue_score);
-        
-        document.getElementById('productivity-loss').textContent = 
-            prediction.productivity_loss.toFixed(1);
-        
-        // Update fatigue level indicator
-        const fatigueLevel = prediction.fatigue_level;
-        const fatigueCard = document.querySelector('.stat-card.primary');
-        
-        fatigueCard.querySelector('.stat-label').textContent = `${fatigueLevel} Risk`;
-        
-        // Update progress bar
-        const progressFill = fatigueCard.querySelector('.progress-fill');
-        progressFill.style.width = `${prediction.fatigue_score}%`;
-        
-        // Color code based on level
-        if (fatigueLevel === 'High') {
-            progressFill.style.backgroundColor = 'var(--danger-color)';
-        } else if (fatigueLevel === 'Medium') {
-            progressFill.style.backgroundColor = 'var(--warning-color)';
-        } else {
-            progressFill.style.backgroundColor = 'var(--success-color)';
-        }
-    }
-    
-    updateUsageDisplay(usageData) {
-        const totals = usageData.totals;
-        
-        // Convert minutes to hours
-        const laptopHours = (totals.laptop_minutes / 60).toFixed(1);
-        const mobileHours = (totals.mobile_minutes / 60).toFixed(1);
-        const totalHours = (totals.total_screen_time / 60).toFixed(1);
-        
-        document.getElementById('laptop-usage').textContent = laptopHours;
-        document.getElementById('mobile-usage').textContent = mobileHours;
-        
-        // Update progress bars
-        const laptopCard = document.querySelector('.stat-card.success .progress-fill');
-        const mobileCard = document.querySelector('.stat-card.info .progress-fill');
-        
-        // Calculate percentages (assuming 10 hours max for visualization)
-        laptopCard.style.width = `${Math.min((laptopHours / 10) * 100, 100)}%`;
-        mobileCard.style.width = `${Math.min((mobileHours / 10) * 100, 100)}%`;
-    }
-    
-    updateDeviceStatus(devices) {
-        const laptopStatus = document.querySelector('.status-badge:nth-child(1)');
-        const mobileStatus = document.querySelector('.status-badge:nth-child(2)');
-        
-        if (devices.laptop.connected) {
-            laptopStatus.innerHTML = '<i class="fas fa-laptop"></i> Laptop: Connected';
-            laptopStatus.className = 'status-badge connected';
-        } else {
-            laptopStatus.innerHTML = '<i class="fas fa-laptop"></i> Laptop: Disconnected';
-            laptopStatus.className = 'status-badge disconnected';
-        }
-        
-        if (devices.mobile.connected) {
-            mobileStatus.innerHTML = '<i class="fas fa-mobile-alt"></i> Mobile: Connected';
-            mobileStatus.className = 'status-badge connected';
-        } else {
-            mobileStatus.innerHTML = '<i class="fas fa-mobile-alt"></i> Mobile: Disconnected';
-            mobileStatus.className = 'status-badge disconnected';
-        }
-    }
-    
-    setupEventListeners() {
-        // QR code refresh
-        const refreshBtn = document.getElementById('refresh-qr');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => this.refreshQRCode());
-        }
-        
-        // Time range filter
-        const timeRange = document.getElementById('time-range');
-        if (timeRange) {
-            timeRange.addEventListener('change', (e) => {
-                this.loadUsageData(parseInt(e.target.value));
-            });
-        }
-    }
-    
-    async refreshQRCode() {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/pairing/generate-qr`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({
-                    device_id: `laptop_${this.generateDeviceId()}`,
-                    device_type: 'laptop',
-                    device_name: 'My Laptop',
-                    user_id: this.userId
-                })
-            });
-            
-            if (!response.ok) throw new Error('Failed to generate QR code');
-            
-            const qrData = await response.json();
-            document.getElementById('qr-code-img').src = qrData.qr_code_url;
-            
-            this.showNotification('QR code refreshed successfully', 'success');
-            
-        } catch (error) {
-            console.error('Error refreshing QR code:', error);
-            this.showNotification('Failed to refresh QR code', 'error');
-        }
-    }
-    
-    generateDeviceId() {
-        return Math.random().toString(36).substring(2, 10);
-    }
-    
-    updateLiveData() {
-        // Update data every 60 seconds
-        setInterval(() => {
-            this.loadDashboardData();
-        }, 60000);
-    }
-    
-    loadSectionData(sectionId) {
-        switch(sectionId) {
-            case 'analytics':
-                this.loadAnalyticsData();
-                break;
-            case 'predictions':
-                this.loadPredictionsHistory();
-                break;
-            case 'notifications':
-                this.loadNotifications();
-                break;
-        }
-    }
-    
-    async loadAnalyticsData() {
-        try {
-            const usageData = await this.fetchUsageData(168); // Last 7 days
-            // Update charts with usageData
-            this.updateAnalyticsCharts(usageData);
-            
-        } catch (error) {
-            console.error('Error loading analytics:', error);
-        }
-    }
-    
-    updateAnalyticsCharts(usageData) {
-        // Implement chart updates based on usageData
-        console.log('Updating analytics charts with:', usageData);
-    }
-    
-    showNotification(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification notification-${type}`;
-        notification.innerHTML = `
-            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-            <span>${message}</span>
-            <button class="notification-close"><i class="fas fa-times"></i></button>
-        `;
-        
-        // Add to page
-        document.body.appendChild(notification);
-        
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            notification.remove();
-        }, 5000);
-        
-        // Close button
-        notification.querySelector('.notification-close').addEventListener('click', () => {
-            notification.remove();
-        });
-    }
-    
-    showError(message) {
-        this.showNotification(message, 'error');
-    }
+const API_BASE="http://127.0.0.1:8000/api/v1";
+
+document.addEventListener("DOMContentLoaded",async function(){
+
+const token=localStorage.getItem("token");
+if(!token){window.location.href="login.html";return;}
+
+const nameBox=document.getElementById("userEmail");
+if(nameBox)nameBox.textContent=localStorage.getItem("studentName")||"User";
+
+initNavigation();
+initQuickActions();
+showSection("dashboard-home");
+
+await initStats();
+await initCharts();
+
+startStatsPolling();
+
+});
+
+function initNavigation(){
+document.querySelectorAll(".nav-link").forEach(link=>{
+link.onclick=(e)=>{
+e.preventDefault();
+const id=link.getAttribute("href").replace("#","");
+showSection(id);
+document.querySelectorAll(".nav-link").forEach(x=>x.classList.remove("active"));
+link.classList.add("active");
+};
+});
 }
 
-// Initialize dashboard when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    new Dashboard();
+function showSection(id){
+document.querySelectorAll(".page-section").forEach(s=>s.classList.remove("active"));
+const target=document.getElementById(id);
+if(target)target.classList.add("active");
+}
+
+async function fetchDashboardStats(){
+
+try{
+
+const token=localStorage.getItem("token");
+const userId=localStorage.getItem("userId");
+
+const usageRes=await fetch(`${API_BASE}/usage/user/${userId}/recent?hours=24`,{
+headers:{Authorization:`Bearer ${token}`}
 });
+
+const usageData=await usageRes.json();
+
+const predRes=await fetch(`${API_BASE}/prediction/user/${userId}/history`,{
+headers:{Authorization:`Bearer ${token}`}
+});
+
+const predData=await predRes.json();
+
+const summary=usageData.summary||{};
+const predictions=predData.predictions||[];
+
+let latestFatigue=0;
+let latestProductivity=0;
+
+if(predictions.length>0){
+
+latestFatigue=predictions[0].fatigue_score||0;
+latestProductivity=predictions[0].productivity_score||0;
+
+}
+
+return{
+
+fatigueScore:latestFatigue,
+productivityScore:latestProductivity,
+screenTime:((summary.total_screen_time_minutes||0)/60).toFixed(1),
+sessions:(usageData.laptop_usage?.length||0)+(usageData.mobile_usage?.length||0),
+predictions:predictions
+
+};
+
+}catch(e){
+
+console.error(e);
+
+return{
+
+fatigueScore:0,
+productivityScore:0,
+screenTime:0,
+sessions:0,
+predictions:[]
+
+};
+
+}
+
+}
+
+async function initStats(){
+
+const stats=await fetchDashboardStats();
+
+setText("fatigue-score",`${stats.fatigueScore}%`);
+setText("screen-time",`${stats.screenTime}h`);
+setText("sessions",stats.sessions);
+
+window.latestStats=stats;
+
+}
+
+function setText(id,val){
+
+const el=document.getElementById(id);
+
+if(el)el.textContent=val;
+
+}
+
+async function initCharts(){
+
+const stats=window.latestStats||await fetchDashboardStats();
+
+createFatigueChart(stats.predictions||[]);
+createProductivityChart(stats.predictions||[]);
+createUsageChart();
+
+}
+
+function createFatigueChart(predictions){
+
+const ctx=document.getElementById("fatigueChart");
+
+if(!ctx)return;
+
+const labels=[];
+const values=[];
+
+predictions.slice(0,7).reverse().forEach(p=>{
+
+labels.push(new Date(p.timestamp).toLocaleDateString());
+values.push(p.fatigue_score);
+
+});
+
+if(window.fatigueChart)window.fatigueChart.destroy();
+
+window.fatigueChart=new Chart(ctx,{
+type:"line",
+data:{labels:labels,datasets:[{data:values}]},
+options:{responsive:true,maintainAspectRatio:false}
+});
+
+}
+
+function createProductivityChart(predictions){
+
+const ctx=document.getElementById("productivityChart");
+
+if(!ctx)return;
+
+const labels=[];
+const values=[];
+
+predictions.slice(0,7).reverse().forEach(p=>{
+
+labels.push(new Date(p.timestamp).toLocaleDateString());
+values.push(p.productivity_score);
+
+});
+
+if(window.productivityChart)window.productivityChart.destroy();
+
+window.productivityChart=new Chart(ctx,{
+type:"bar",
+data:{labels:labels,datasets:[{data:values}]},
+options:{responsive:true,maintainAspectRatio:false}
+});
+
+}
+
+async function createUsageChart(){
+
+try{
+
+const token=localStorage.getItem("token");
+
+const res=await fetch(`${API_BASE}/usage/user/${localStorage.getItem("userId")}/recent?hours=24`,{
+headers:{Authorization:`Bearer ${token}`}
+});
+
+const data=await res.json();
+
+let work=0;
+let social=0;
+let other=0;
+
+(data.laptop_usage||[]).forEach(x=>{
+
+const cat=(x.app_category||"OTHER").toUpperCase();
+
+if(cat==="HIGH")work++;
+else if(cat==="MEDIUM")other++;
+else social++;
+
+});
+
+const ctx=document.getElementById("usageChart");
+
+if(!ctx)return;
+
+if(window.usageChart)window.usageChart.destroy();
+
+window.usageChart=new Chart(ctx,{
+type:"doughnut",
+data:{
+labels:["Work","Social","Other"],
+datasets:[{data:[work,social,other]}]
+},
+options:{responsive:true,maintainAspectRatio:false}
+});
+
+}catch(e){
+
+console.error(e);
+
+}
+
+}
+
+function initQuickActions(){
+
+document.querySelectorAll(".action-btn").forEach(btn=>{
+
+btn.onclick=()=>{
+
+if(btn.dataset.action==="view-insights")showSection("analytics");
+if(btn.dataset.action==="pair-device")showSection("qr-pairing");
+
+};
+
+});
+
+}
+
+let statsInterval;
+
+function startStatsPolling(){
+
+if(statsInterval)clearInterval(statsInterval);
+
+statsInterval=setInterval(async()=>{
+
+const active=document.querySelector(".page-section.active");
+
+if(active&&active.id==="dashboard-home"){
+
+await initStats();
+await initCharts();
+
+}
+
+},60000);
+
+}
