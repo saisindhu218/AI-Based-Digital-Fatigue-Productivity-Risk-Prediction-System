@@ -1,17 +1,14 @@
 """
 REAL LIVE Feature extraction for fatigue and productivity ML models
 Uses behavioral metrics: keystrokes, mouse, idle, app switching, cognitive load
+Supports app_name + window_title for browser tab awareness
 """
 
 import numpy as np
 from datetime import datetime
 from typing import Dict,List,Optional
 
-
 class LiveFeatureExtractor:
-
-    def __init__(self):
-        pass
 
     def extract_features_from_live_data(self,laptop_data:List[Dict],mobile_data:List[Dict],user_id:Optional[str]=None)->Dict[str,float]:
 
@@ -33,32 +30,28 @@ class LiveFeatureExtractor:
             total_keystrokes=sum(int(x.get("keystrokes",0)) for x in laptop_data)
             keystrokes_per_hour=total_keystrokes/max(total_screen_hours,1)
 
-            total_mouse=sum(int(x.get("mouse_clicks",0))+int(x.get("mouse_moves",0)) for x in laptop_data)
+            total_mouse=sum(
+                int(x.get("mouse_clicks",0))+int(x.get("mouse_moves",0))
+                for x in laptop_data
+            )
             mouse_per_hour=total_mouse/max(total_screen_hours,1)
 
             total_switches=sum(int(x.get("app_switches",0)) for x in laptop_data)
             switches_per_hour=total_switches/max(total_screen_hours,1)
 
             breaks=self._calculate_breaks(all_data)
-
             night_ratio=self._calculate_night_ratio(all_data)
-
             productive_ratio=self._calculate_productive_ratio(all_data)
-
             cognitive_load=self._calculate_cognitive_load(laptop_data)
 
             focus_score=self._calculate_focus_score(productive_ratio,idle_ratio,switches_per_hour)
 
             fatigue_index=self._calculate_fatigue_index(
-                total_screen_hours,
-                idle_ratio,
-                keystrokes_per_hour,
-                mouse_per_hour,
-                switches_per_hour,
-                cognitive_load
+                total_screen_hours,idle_ratio,keystrokes_per_hour,
+                mouse_per_hour,switches_per_hour,cognitive_load
             )
 
-            return {
+            return{
                 "screen_time":round(total_screen_hours,2),
                 "avg_session":round(avg_session_hours,2),
                 "breaks":breaks,
@@ -77,42 +70,14 @@ class LiveFeatureExtractor:
             print("Feature extraction error:",e)
             return self._get_default_features()
 
-    def prepare_for_classification(self,features:Dict)->np.ndarray:
-
-        order=[
-            "screen_time",
-            "avg_session",
-            "breaks",
-            "night_ratio",
-            "productive_ratio"
-        ]
-
-        values=[features.get(x,0) for x in order]
-        return np.array(values).reshape(1,-1)
-
-    def prepare_for_regression(self,features:Dict)->np.ndarray:
-
-        order=[
-            "screen_time",
-            "avg_session",
-            "breaks",
-            "night_ratio",
-            "productive_ratio",
-            "focus_score"
-        ]
-
-        values=[features.get(x,0) for x in order]
-        return np.array(values).reshape(1,-1)
-
     def _get_duration(self,item:Dict)->float:
-
         if "usage_duration" in item:
             return float(item["usage_duration"])*60
         if "screen_time" in item:
             return float(item["screen_time"])
         if "duration" in item:
             return float(item["duration"])
-        return 0
+        return 60
 
     def _calculate_breaks(self,data:List[Dict])->int:
 
@@ -123,13 +88,12 @@ class LiveFeatureExtractor:
         breaks=0
 
         for i in range(1,len(sorted_data)):
-
             prev=self._get_timestamp(sorted_data[i-1])
             curr=self._get_timestamp(sorted_data[i])
 
             if prev and curr:
                 gap=(curr-prev).total_seconds()
-                if gap>300:
+                if gap>600:
                     breaks+=1
 
         return breaks
@@ -155,13 +119,11 @@ class LiveFeatureExtractor:
         total_seconds=0
 
         for item in data:
-
             duration=self._get_duration(item)
             total_seconds+=duration
-
             ts=self._get_timestamp(item)
 
-            if ts and ts.hour>=22 or ts and ts.hour<=5:
+            if ts and (ts.hour>=22 or ts.hour<=5):
                 night_seconds+=duration
 
         return night_seconds/max(total_seconds,1)
@@ -169,8 +131,10 @@ class LiveFeatureExtractor:
     def _calculate_productive_ratio(self,data:List[Dict])->float:
 
         productive_keywords=[
-            "code","pycharm","studio","terminal","word","excel",
-            "research","docs","learning","notepad","powershell"
+            "code","pycharm","studio","terminal",
+            "word","excel","docs","learning",
+            "notepad","powershell","github",
+            "stackoverflow","research"
         ]
 
         productive=0
@@ -181,7 +145,8 @@ class LiveFeatureExtractor:
             duration=self._get_duration(item)
             total+=duration
 
-            name=str(item.get("active_app","")+item.get("app_name","")).lower()
+            name=str(item.get("active_app") or "")+str(item.get("app_name") or "")+str(item.get("window_title") or "")
+            name=name.lower()
 
             if any(x in name for x in productive_keywords):
                 productive+=duration
@@ -210,30 +175,19 @@ class LiveFeatureExtractor:
 
     def _calculate_focus_score(self,productive_ratio,idle_ratio,switches_per_hour)->float:
 
-        score=(
-            productive_ratio*100
-            -idle_ratio*50
-            -switches_per_hour*2
-        )
+        score=(productive_ratio*100-idle_ratio*50-switches_per_hour*2)
 
         return max(0,min(100,score))
 
     def _calculate_fatigue_index(self,screen,idle,keys,mouse,switches,cognitive)->float:
 
-        fatigue=(
-            screen*5
-            +idle*50
-            +switches*1.5
-            +cognitive*10
-            -keys*0.01
-            -mouse*0.005
-        )
+        fatigue=(screen*5+idle*50+switches*1.5+cognitive*10-keys*0.01-mouse*0.005)
 
         return max(0,min(100,fatigue))
 
     def _get_default_features(self)->Dict[str,float]:
 
-        return {
+        return{
             "screen_time":2.0,
             "avg_session":0.5,
             "breaks":1,

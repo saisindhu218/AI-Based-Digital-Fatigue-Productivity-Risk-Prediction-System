@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const token = localStorage.getItem("token");
 
-    // If we are on login page AND already logged in → go to dashboard
+    // If already logged in and user opens login page → redirect to dashboard
     if (window.location.pathname.includes("login.html") && token) {
         window.location.href = "index.html";
         return;
@@ -12,27 +12,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (document.getElementById("login-form")) setupLogin();
     if (document.getElementById("register-form")) setupRegister();
+
     showUserName();
 });
 
 function checkAuth(page) {
+
     const token = localStorage.getItem("token");
-    
+
     if (page === "index.html" && !token) {
         location.href = "login.html";
     }
-    
+
     if ((page === "login.html" || page === "register.html") && token) {
         location.href = "index.html";
     }
 }
 
-// ===== REGISTER =====
+
+// ================= REGISTER =================
+
 function setupRegister() {
+
     const form = document.getElementById("register-form");
     if (!form) return;
 
     form.addEventListener("submit", async (e) => {
+
         e.preventDefault();
 
         const name = document.getElementById("full-name").value.trim();
@@ -40,7 +46,6 @@ function setupRegister() {
         const password = document.getElementById("password").value;
         const confirm = document.getElementById("confirm-password")?.value;
 
-        // Validation
         if (!name || !email || !password) {
             alert("All fields are required");
             return;
@@ -61,6 +66,7 @@ function setupRegister() {
         btn.textContent = "Registering...";
 
         try {
+
             const res = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -80,24 +86,31 @@ function setupRegister() {
                 return;
             }
 
-            console.log("Registration success:", data);
             alert("Registration successful! Please login.");
             location.href = "login.html";
 
         } catch (error) {
+
             alert("Network error. Is backend running?");
             btn.disabled = false;
             btn.textContent = "Register";
+
         }
+
     });
+
 }
 
-// ===== LOGIN =====
+
+// ================= LOGIN =================
+
 function setupLogin() {
+
     const form = document.getElementById("login-form");
     if (!form) return;
 
     form.addEventListener("submit", async (e) => {
+
         e.preventDefault();
 
         const email = document.getElementById("email").value.trim();
@@ -113,6 +126,7 @@ function setupLogin() {
         btn.textContent = "Logging in...";
 
         try {
+
             const res = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -128,30 +142,71 @@ function setupLogin() {
                 return;
             }
 
-            console.log("Login success");
+            console.log("Login success", data);
+
+            // Extract username from email
+            const username = email.split("@")[0];
+
+            // Store login info
             localStorage.setItem("token", data.access_token);
-            localStorage.setItem("studentName", email.split('@')[0]);
+            localStorage.setItem("studentName", username);
+            localStorage.setItem("userId", username);
+
+            // Notify backend about active user (optional)
+            try {
+
+                await fetch(`${API_BASE_URL}/api/v1/pairing/save-user`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        user_id: username
+                    })
+                });
+
+            } catch (err) {
+
+                console.warn("Could not save active user");
+
+            }
+
             location.href = "index.html";
 
         } catch (error) {
+
             alert("Network error. Is backend running?");
             btn.disabled = false;
             btn.textContent = "Login";
+
         }
+
     });
+
 }
 
+// ================= USER NAME DISPLAY =================
+
 function showUserName() {
+
     const box = document.getElementById("userEmail");
+
     if (box) {
         box.textContent = localStorage.getItem("studentName") || "User";
     }
+
 }
 
-// Logout
+
+// ================= LOGOUT =================
+
 document.addEventListener("click", (e) => {
+
     if (e.target.id === "logoutBtn" || e.target.closest("#logoutBtn")) {
+
         localStorage.clear();
         location.href = "login.html";
+
     }
+
 });
